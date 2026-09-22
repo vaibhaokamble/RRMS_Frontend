@@ -1,92 +1,115 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import {
-    ArrowRight,
-    ArrowUpRight,
-    BedDouble,
-    CalendarDays,
-    ChevronRight,
-    ClipboardCheck,
-    Clock3,
-    Coffee,
-    IndianRupee,
-    Leaf,
-    MessageSquare,
-    Plus,
-    Sparkles,
-    Star,
-    Sun,
-    Users,
-    Waves
+  ArrowRight,
+  ArrowUpRight,
+  BedDouble,
+  CalendarDays,
+  ChevronRight,
+  ClipboardCheck,
+  Clock3,
+  Coffee,
+  IndianRupee,
+  Leaf,
+  MessageSquare,
+  Plus,
+  Sparkles,
+  Star,
+  Sun,
+  Users,
+  Waves,
+  ShieldCheck,
+  Receipt,
+  Wrench,
+  Utensils,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  UserPlus
 } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
-    Area,
-    AreaChart,
-    CartesianGrid,
-    Cell,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import HeroSlider from '../components/HeroSlider';
 import RoomsCarousel from '../components/RoomsCarousel';
+import { AccountsTable } from '../components/AccountsTable';
 import {
-    Avatar,
-    Badge,
-    Button,
-    Card,
-    CardHead,
-    Counter,
-    Empty,
-    PageMotion,
-    PageTitle,
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardHead,
+  Counter,
+  Empty,
+  PageMotion,
+  PageTitle,
+  Modal,
+  FormModal
 } from '../components/ui';
-import { can, dashboard, dateOffset, folio, money, shortDate, today } from '../lib/domain';
+import { can, dashboard, dateOffset, folio, money, shortDate, today, roles } from '../lib/domain';
 import { useStore } from '../lib/store';
+import { toast } from 'sonner';
+
 export function Stat({
   label,
   value,
   icon: Icon,
   detail,
   format,
-  color,
+  color = 'primary',
 }: {
   label: string;
   value: number;
   icon: LucideIcon;
   detail: string;
   format?: (n: number) => string;
-  color?: string;
+  color?: 'primary' | 'accent' | 'warning' | 'danger' | string;
 }) {
+  const isAccent = color === 'amber' || color === 'accent';
+  const chipBg = isAccent
+    ? 'rgba(201, 162, 39, 0.12)'
+    : color === 'rose' || color === 'danger'
+      ? 'rgba(193, 68, 58, 0.12)'
+      : 'rgba(31, 58, 46, 0.12)';
+  const iconColor = isAccent ? '#C9A227' : color === 'rose' || color === 'danger' ? '#C1443A' : '#1F3A2E';
+
   return (
-    <Card className="stat-card">
-      <div className="stat-top">
-        <span>{label}</span>
-        <span className={`stat-icon ${color ?? ''}`}>
+    <Card className="stat-card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-[#6B7160] uppercase tracking-wider">{label}</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: chipBg, color: iconColor }}>
           <Icon size={19} />
-        </span>
+        </div>
       </div>
-      <div className="stat-value">
+      <div className="text-3xl font-bold font-serif text-[#22261F]">
         <Counter value={value} format={format} />
       </div>
-      <div className="stat-detail">
-        <span className="tiny-dot" />
+      <div className="text-xs text-[#6B7160] mt-2 flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
         {detail}
       </div>
     </Card>
   );
 }
+
 export default function Dashboard() {
   const { actor } = useStore();
   if (actor?.module === 'Guest') return <GuestDashboard />;
-  if (actor?.module === 'Staff') return <StaffDashboard />;
+  if (actor?.module === 'Staff') return <StaffRoleDashboard />;
   return <OperationsDashboard />;
 }
+
 function OperationsDashboard() {
   const reduced = useReducedMotion();
   const { s, actor } = useStore();
@@ -107,7 +130,7 @@ function OperationsDashboard() {
     };
   });
   const chartTotal = chart.reduce((n, p) => n + p.revenue, 0);
-  const colors = ['#687e54', '#b9cba7', '#edc178', '#d9dee1', '#9dadae'];
+  const colors = ['#1F3A2E', '#C9A227', '#D98E04', '#6B7160', '#C1443A'];
   const roomData = ['Occupied', 'Ready', 'Dirty', 'Inspection', 'Maintenance'].map((status, i) => ({
     name: status,
     value: s.rooms.filter((r) => r.status === status).length,
@@ -121,6 +144,7 @@ function OperationsDashboard() {
     ? s.reviews.reduce((n, r) => n + r.rating, 0) / s.reviews.length
     : 0;
   const go = (path: string) => navigate(`${base}/${path}`);
+
   return (
     <PageMotion>
       <PageTitle
@@ -132,10 +156,10 @@ function OperationsDashboard() {
             year: 'numeric',
           })
           .toUpperCase()}
-        title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, ${actor!.name.split(' ')[0]} `}
+        title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, ${actor!.name.split(' ')[0]}`}
         description={
           owner
-            ? 'A thoughtful view of your resort’s performance.'
+            ? 'Executive overview of performance, financials, and account management.'
             : 'Here’s what’s happening at your resort today.'
         }
         actions={
@@ -160,15 +184,18 @@ function OperationsDashboard() {
           </>
         }
       />
-         <HeroSlider />
-      <div className="stats-grid">
+      
+      <HeroSlider />
+
+      {/* Core Executive & Operational Stats */}
+      <div className="stats-grid my-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <Stat
           label="Room occupancy"
           value={d.occupancy}
           format={(n) => `${n}%`}
           icon={BedDouble}
           detail={`${d.occupied} of ${s.rooms.length} rooms occupied`}
-          color="olive"
+          color="primary"
         />
         <Stat
           label={owner ? 'Total collected' : 'Available rooms'}
@@ -184,7 +211,7 @@ function OperationsDashboard() {
           format={money}
           icon={IndianRupee}
           detail={owner ? 'Recorded expenses across the resort' : 'Net collections recorded today'}
-          color="blue"
+          color="primary"
         />
         <Stat
           label={owner ? 'Cancellation rate' : 'Today’s arrivals'}
@@ -204,17 +231,28 @@ function OperationsDashboard() {
               ? `${s.reservations.length} total reservations`
               : `${d.departures} departures scheduled today`
           }
-          color="purple"
+          color="rose"
         />
       </div>
-      <div className="dashboard-middle">
-        <Card className="revenue-card">
+
+      {/* Hierarchical Account Creation & Management Table (Owner & Manager) */}
+      <AccountsTable
+        title={owner ? 'Owner Portal — Manager Accounts Created' : 'Manager Portal — Staff Accounts Created'}
+        subtitle={
+          owner
+            ? 'Generate Manager credentials and manage system active statuses live'
+            : 'Generate Staff accounts for Receptionists, Housekeeping, Cashiers, Maintenance, Gardeners, F&B, & Spa'
+        }
+      />
+
+      <div className="dashboard-middle my-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="revenue-card md:col-span-2">
           <CardHead
             title="Revenue overview"
-            subtitle="A closer look at your resort’s daily collections"
+            subtitle="Daily revenue collection trend breakdown"
             action={
               <select
-                className="compact-select"
+                className="compact-select border border-[#F0EBE1] rounded-lg px-2 py-1 text-xs"
                 aria-label="Revenue period"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
@@ -225,75 +263,68 @@ function OperationsDashboard() {
               </select>
             }
           />
-          <div className="chart-summary">
-            <strong>{money(chartTotal)}</strong>
-            <span>
-              <span className="legend-dot" />
-              Net collections
-            </span>
-            <span className="chart-period">
+          <div className="chart-summary p-4 flex items-center justify-between border-b border-[#F0EBE1]">
+            <div>
+              <span className="text-2xl font-bold font-serif text-[#22261F]">{money(chartTotal)}</span>
+              <span className="text-xs text-[#6B7160] block">Net collections ({period} days)</span>
+            </div>
+            <span className="text-xs text-[#6B7160]">
               {shortDate(dateOffset(1 - periodDays))} – {shortDate(today())}
             </span>
           </div>
-          <div className="revenue-chart">
+          <div className="revenue-chart h-64 p-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chart} margin={{ top: 10, right: 15, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#829b69" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="#829b69" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#C9A227" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#C9A227" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#ebeee8" />
+                <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#F0EBE1" />
                 <XAxis
                   dataKey="date"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: '#92968d' }}
+                  tick={{ fontSize: 10, fill: '#6B7160' }}
                   dy={8}
-                  minTickGap={20}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: '#92968d' }}
+                  tick={{ fontSize: 10, fill: '#6B7160' }}
                   tickFormatter={(v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`)}
-                  width={52}
+                  width={48}
                 />
                 <Tooltip
                   formatter={(value) => [money(Number(value)), 'Collections']}
-                  contentStyle={{ borderRadius: 12, border: '1px solid #e8ece4', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #F0EBE1', fontSize: 12 }}
                 />
                 <Area
                   isAnimationActive={!reduced}
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#748b5f"
+                  stroke="#1F3A2E"
                   strokeWidth={2.5}
                   fill="url(#revenue-fill)"
-                  animationDuration={600}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </Card>
+
         <Card className="room-overview">
           <CardHead
-            title="Room overview"
-            subtitle="Every room, at a glance"
+            title="Room status breakdown"
+            subtitle="Real-time availability distribution"
             action={
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => go('rooms')}
-                aria-label="View all rooms"
-              >
+              <Button variant="ghost" size="icon" onClick={() => go('rooms')}>
                 <ArrowUpRight size={18} />
               </Button>
             }
           />
-          <div className="donut-wrap">
-            <ResponsiveContainer width="100%" height={176}>
+          <div className="donut-wrap flex flex-col items-center justify-center p-4 relative">
+            <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie
                   isAnimationActive={!reduced}
@@ -301,10 +332,9 @@ function OperationsDashboard() {
                   dataKey="value"
                   cx="50%"
                   cy="50%"
-                  innerRadius={62}
-                  outerRadius={79}
+                  innerRadius={60}
+                  outerRadius={78}
                   paddingAngle={4}
-                  cornerRadius={4}
                   stroke="none"
                   startAngle={90}
                   endAngle={-270}
@@ -316,80 +346,72 @@ function OperationsDashboard() {
                 <Tooltip formatter={(v, n) => [`${v} rooms`, n]} />
               </PieChart>
             </ResponsiveContainer>
-            <div className="donut-label">
-              <strong>{s.rooms.length}</strong>
-              <span>Total rooms</span>
+            <div className="donut-label text-center absolute">
+              <strong className="text-2xl font-serif font-bold block">{s.rooms.length}</strong>
+              <span className="text-xs text-[#6B7160]">Total rooms</span>
             </div>
           </div>
-          <div className="room-legend">
+          <div className="room-legend p-4 border-t border-[#F0EBE1] grid grid-cols-2 gap-2 text-xs">
             {roomData.map((r) => (
-              <div key={r.name}>
-                <span className="legend-dot" style={{ background: r.color }} />
-                <span>{r.name}</span>
-                <strong>{r.value.toString().padStart(2, '0')}</strong>
+              <div key={r.name} className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
+                <span className="text-[#6B7160] flex-1">{r.name}</span>
+                <strong className="font-mono text-[#22261F]">{r.value}</strong>
               </div>
             ))}
           </div>
         </Card>
       </div>
-      <div className="dashboard-bottom">
-        <Card>
+
+      <div className="dashboard-bottom grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="md:col-span-2">
           <CardHead
             title={owner ? 'Recent reservations' : 'Today’s arrivals'}
-            subtitle={
-              owner
-                ? 'The latest chapters in your guest journey'
-                : 'A warm welcome is the perfect beginning'
-            }
+            subtitle={owner ? 'Latest guest bookings across the resort' : 'Welcoming today’s confirmed arrivals'}
             action={
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => go(owner ? 'reports' : 'reservations')}
-              >
-                View all
-                <ArrowRight size={14} />
+              <Button variant="ghost" size="sm" onClick={() => go(owner ? 'reports' : 'reservations')}>
+                View all <ArrowRight size={14} />
               </Button>
             }
           />
           <div className="table-scroll">
-            <table className="arrival-table">
-              <thead>
+            <table className="arrival-table w-full text-xs text-left">
+              <thead className="bg-[#FAF7F2] text-[#6B7160]">
                 <tr>
-                  <th>Guest</th>
-                  <th>Room</th>
-                  <th>Stay</th>
-                  <th>Status</th>
-                  <th />
+                  <th className="p-3">Guest</th>
+                  <th className="p-3">Room</th>
+                  <th className="p-3">Dates</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3" />
                 </tr>
               </thead>
-              <tbody>
-                {(owner ? s.reservations.slice(0, 4) : arrivals).map((r) => {
+              <tbody className="divide-y divide-[#F0EBE1]">
+                {(owner ? s.reservations.slice(0, 5) : arrivals).map((r) => {
                   const g = s.guests.find((g) => g.id === r.guestId)!,
                     room = s.rooms.find((x) => x.id === r.roomId)!;
                   return (
-                    <tr key={r.id}>
-                      <td>
-                        <div className="person-cell">
+                    <tr key={r.id} className="hover:bg-[#FAF7F2]/50">
+                      <td className="p-3">
+                        <div className="person-cell flex items-center gap-2">
                           <Avatar name={g.name} />
                           <div>
-                            <strong>{g.name}</strong>
-                            <small>{r.id}</small>
+                            <strong className="block text-[#22261F]">{g.name}</strong>
+                            <small className="text-[#6B7160]">{r.id}</small>
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <strong>{room.number}</strong>
-                        <small>{room.type}</small>
+                      <td className="p-3">
+                        <strong className="block text-[#22261F]">Room {room.number}</strong>
+                        <small className="text-[#6B7160]">{room.type}</small>
                       </td>
-                      <td>
+                      <td className="p-3 text-[#22261F]">
                         {shortDate(r.checkIn)} – {shortDate(r.checkOut)}
-                        <small>{r.adults} guests</small>
+                        <small className="block text-[#6B7160]">{r.adults} guests</small>
                       </td>
-                      <td>
+                      <td className="p-3">
                         <Badge>{r.status}</Badge>
                       </td>
-                      <td>
+                      <td className="p-3 text-right">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -404,428 +426,615 @@ function OperationsDashboard() {
                 })}
               </tbody>
             </table>
-            {!arrivals.length && !owner && (
-              <Empty
-                title="All arrivals are taken care of"
-                description="Your reception team is up to date."
-              />
-            )}
-          </div>
-          <div className="card-bottom-note">
-            <span className="live-dot" />{' '}
-            {owner
-              ? `${s.reservations.length} reservations across your resort`
-              : 'Synced with the front desk, in real time'}
           </div>
         </Card>
-        <Card className="attention-card">
-          <CardHead
-            title="A little attention needed"
-            subtitle="The details that make a difference"
-          />
-          <button className="attention-row" onClick={() => go(owner ? 'reports' : 'tasks')}>
-            <span className="attention-icon amber">
-              <ClipboardCheck size={19} />
-            </span>
-            <span>
-              <strong>Open tasks</strong>
-              <small>Keep your resort day running smoothly</small>
-            </span>
-            <b>{d.pending}</b>
-            <ChevronRight size={15} />
-          </button>
-          <button className="attention-row" onClick={() => go(owner ? 'reports' : 'support')}>
-            <span className="attention-icon rose">
-              <MessageSquare size={19} />
-            </span>
-            <span>
-              <strong>Guest requests</strong>
-              <small>A thoughtful response goes a long way</small>
-            </span>
-            <b>{d.complaints}</b>
-            <ChevronRight size={15} />
-          </button>
-          <button className="attention-row" onClick={() => go(owner ? 'reports' : 'tasks')}>
-            <span className="attention-icon blue">
-              <BedDouble size={19} />
-            </span>
-            <span>
-              <strong>Awaiting inspection</strong>
-              <small>Ready for your final seal of approval</small>
-            </span>
-            <b>{s.rooms.filter((r) => r.status === 'Inspection').length}</b>
-            <ChevronRight size={15} />
-          </button>
-          <div className="guest-love">
-            <span>
-              <Star size={18} fill="currentColor" />
-            </span>
-            <div>
-              <strong>
-                {average.toFixed(1)} <small>/ 5 guest happiness</small>
-              </strong>
-              <p>Little moments. Lasting memories.</p>
+
+        <Card className="attention-card p-4">
+          <CardHead title="Attention needed" subtitle="Action items requiring staff attention" />
+          <div className="space-y-3 mt-3">
+            <button
+              onClick={() => go(owner ? 'reports' : 'tasks')}
+              className="w-full p-3 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] flex items-center justify-between text-left transition-all bg-[#FAF7F2]/60"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#D98E04]/10 text-[#D98E04] flex items-center justify-center">
+                  <ClipboardCheck size={18} />
+                </div>
+                <div>
+                  <strong className="block text-xs text-[#22261F]">Open tasks</strong>
+                  <span className="text-[11px] text-[#6B7160]">Housekeeping & Maintenance</span>
+                </div>
+              </div>
+              <span className="font-bold text-xs bg-[#D98E04]/20 text-[#D98E04] px-2 py-0.5 rounded-full">
+                {d.pending}
+              </span>
+            </button>
+
+            <button
+              onClick={() => go(owner ? 'reports' : 'support')}
+              className="w-full p-3 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] flex items-center justify-between text-left transition-all bg-[#FAF7F2]/60"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#C1443A]/10 text-[#C1443A] flex items-center justify-center">
+                  <MessageSquare size={18} />
+                </div>
+                <div>
+                  <strong className="block text-xs text-[#22261F]">Guest requests</strong>
+                  <span className="text-[11px] text-[#6B7160]">Concierge & Support tickets</span>
+                </div>
+              </div>
+              <span className="font-bold text-xs bg-[#C1443A]/20 text-[#C1443A] px-2 py-0.5 rounded-full">
+                {d.complaints}
+              </span>
+            </button>
+
+            <div className="guest-love p-4 rounded-xl bg-[#1F3A2E] text-white flex items-center justify-between mt-4">
+              <div>
+                <div className="flex items-center gap-1 text-[#C9A227]">
+                  <Star size={16} fill="currentColor" />
+                  <span className="font-bold font-serif text-lg">{average.toFixed(1)} / 5</span>
+                </div>
+                <p className="text-xs text-white/80 mt-0.5">Overall guest feedback score</p>
+              </div>
+              <Leaf size={28} className="text-[#C9A227] opacity-80" />
             </div>
-            <Leaf size={30} />
           </div>
         </Card>
       </div>
     </PageMotion>
   );
 }
+
 function BarIcon() {
   return <IndianRupee size={16} />;
 }
+
+/* Guest Portal Dashboard with Animated Booking Status Progress Timeline */
 function GuestDashboard() {
-  const { s, actor } = useStore();
+  const { s, actor, act } = useStore();
   const navigate = useNavigate();
-  const g = s.guests.find((x) => x.id === actor!.guestId)!;
+  const [pulseGold, setPulseGold] = useState(false);
+  const g = s.guests.find((x) => x.id === actor!.guestId) ?? s.guests[0];
   const r =
     s.reservations.find((x) => x.guestId === g.id && x.status === 'Checked in') ??
-    s.reservations.find((x) => x.guestId === g.id && x.status === 'Confirmed');
+    s.reservations.find((x) => x.guestId === g.id && x.status === 'Confirmed') ??
+    s.reservations[0];
   const room = s.rooms.find((x) => x.id === r?.roomId);
   const balance = r ? folio(s, r).balance : 0;
+
+  // Booking Timeline Progress calculation
+  let progressPct = 33; // Confirmed
+  if (r?.status === 'Checked in') progressPct = 66; // Active Stay
+  if (r?.status === 'Completed') progressPct = 100; // Completed
+
+  const triggerGoldPulse = () => {
+    setPulseGold(true);
+    setTimeout(() => setPulseGold(false), 1000);
+  };
+
   return (
     <PageMotion>
       <PageTitle
-        eyebrow="YOUR PALM RESORT EXPERIENCE"
+        eyebrow="GUEST PORTAL · LUXURY RESORT EXPERIENCE"
         title={`Welcome home, ${g.name.split(' ')[0]}.`}
-        description="Unwind, explore, and leave the little details to us."
+        description="Your stay, experiences, billing, and concierge at your fingertips."
         actions={
           <Button variant="outline" onClick={() => navigate('/guest/support')}>
             <MessageSquare size={16} />
-            Ask your concierge
+            Ask Concierge
           </Button>
         }
       />
-      <div className="resort-banner guest-banner fade-in">
-        <div className="banner-content">
-          <div className="banner-kicker">
-            <span /> YOUR TIME TO SLOW DOWN
+
+      <div className="resort-banner guest-banner fade-in p-8 rounded-2xl bg-[#1F3A2E] text-white relative overflow-hidden mb-6">
+        <div className="banner-content relative z-10 max-w-xl">
+          <div className="banner-kicker text-xs text-[#C9A227] tracking-widest font-semibold mb-2">
+            ● YOUR SANCTUARY AWAITS
           </div>
-          <h2>
-            Somewhere between
-            <br />a getaway and a feeling.
+          <h2 className="font-serif text-3xl font-bold mb-2">
+            Somewhere between a getaway and a feeling.
           </h2>
-          <p>
-            Your coastal sanctuary is ready.
-            <br />
-            Make this stay a little more you.
+          <p className="text-xs text-[#FAF7F2]/80 mb-4">
+            Welcome to {s.policies.resortName}. Request room dining, spa services, or concierge assistance.
           </p>
-          <button onClick={() => navigate('/guest/services')}>
-            Explore your experiences
-            <ArrowUpRight size={17} />
-          </button>
-        </div>
-        <div className="banner-location">
-          {s.policies.resortName}
-          <small>{s.policies.location}</small>
+          <Button onClick={() => navigate('/guest/services')}>
+            Explore Resort Experiences <ArrowUpRight size={17} />
+          </Button>
         </div>
       </div>
-      <div className="guest-overview">
-        <Card className="stay-card">
-          <img src="/images/suite.jpg" alt="Sunlit resort suite with a comfortable king bed" />
+
+      {/* Booking Status Animated Timeline (Upcoming -> Active Stay -> Completed) */}
+      <Card className="p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="flex-between">
-              <span className="eyebrow">YOUR STAY</span>
-              {r && <Badge>{r.status}</Badge>}
-            </div>
-            <h2>{room?.type ?? 'Your next chapter awaits'}</h2>
-            <p>
-              {room
-                ? `Room ${room.number} · ${room.floor}`
-                : 'Contact reception to arrange your next visit.'}
-            </p>
-            {r && (
-              <>
-                <div className="stay-dates">
-                  <div>
-                    <small>CHECK-IN</small>
-                    <strong>{shortDate(r.checkIn)}</strong>
-                    <span>From {s.policies.checkIn}</span>
-                  </div>
-                  <ArrowRight size={20} />
-                  <div>
-                    <small>CHECK-OUT</small>
-                    <strong>{shortDate(r.checkOut)}</strong>
-                    <span>By {s.policies.checkOut}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <Button variant="outline" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
-                    View stay details
-                    <ArrowRight size={15} />
-                  </Button>
-                  <Button onClick={() => navigate('/guest/services')}>Add experience</Button>
-                </div>
-              </>
-            )}
+            <h3 className="font-serif font-bold text-lg text-[#22261F]">My Booking Status</h3>
+            <p className="text-xs text-[#6B7160]">Reservation {r.id} · {room?.type ?? 'Suite'}</p>
           </div>
-        </Card>
-
-        <div className="guest-small-stats">
-          <div className="balance-card card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <small className="eyebrow">YOUR BALANCE</small>
-                <h2 style={{ marginTop: 6 }}>{money(Math.max(0, balance))}</h2>
-                <p className="muted" style={{ marginTop: 8 }}>View your itemized bill for details</p>
-              </div>
-              <div>
-                <Button variant="soft">Settle</Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="concierge-card">
-            <img src="/images/suite.jpg" alt="Concierge" />
-            <div>
-              <strong>24/7 Concierge</strong>
-              <p className="muted">Ask for dining, spa, or local recommendations.</p>
-              <div style={{ marginTop: 10 }}>
-                <Button variant="outline" size="sm" onClick={() => navigate('/guest/support')}>Message concierge</Button>
-              </div>
-            </div>
-          </div>
+          <Badge>{r.status}</Badge>
         </div>
-      </div>
 
-      <div className="quick-section" style={{ marginTop: 20 }}>
-        <Card>
-          <CardHead title="Make room for a little more" subtitle="Thoughtful experiences, just a request away" action={
-            <Button variant="ghost" onClick={() => navigate('/guest/services')}>
-              All experiences
-              <ArrowRight size={15} />
-            </Button>
-          } />
-          <div className="quick-experiences" style={{ padding: 12 }}>
-            {[
-              { name: 'Spa & wellness', text: 'Find your moment of calm', icon: Leaf },
-              { name: 'In-room dining', text: 'A taste of the coast', icon: Coffee },
-              { name: 'Activities', text: 'Follow your curiosity', icon: Waves },
-              { name: 'Guest support', text: 'We’re here for the little things', icon: MessageSquare },
-            ].map((x, i) => (
-              <button key={x.name} onClick={() => navigate(i === 3 ? '/guest/support' : '/guest/services?new=1')}>
-                <span>
-                  <x.icon size={26} />
-                </span>
-                <div style={{ textAlign: 'left' }}>
-                  <strong>{x.name}</strong>
-                  <small className="muted">{x.text}</small>
-                </div>
-                <ArrowUpRight size={17} />
-              </button>
-            ))}
+        {/* Animated Progress Line */}
+        <div className="relative my-6 px-4">
+          <div className="h-2 w-full bg-[#F0EBE1] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#C9A227] transition-all duration-700 ease-out rounded-full"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
-        </Card>
-      </div>
-      <div style={{ marginTop: 18 }}>
-        <Card>
-          <CardHead title="Rooms & suites" subtitle="Handpicked stays you can book" />
-          <div style={{ padding: 8 }}>
-            <RoomsCarousel rooms={s.rooms.slice(0, 6)} />
-          </div>
-        </Card>
-      </div>
-
-      <div className="dashboard-middle" style={{ marginTop: 18 }}>
-        <Card>
-          <CardHead title="Special offers" subtitle="Handpicked for your stay" />
-          <div className="offers-grid" style={{ padding: 12 }}>
-            <a className="offer-card" href="#">
-              <img src="/images/resort.jpg" alt="Offer" style={{ width: '100%', height: 140, objectFit: 'cover' }} />
-              <div className="offer-content">
-                <strong>Sunset dinner for two</strong>
-                <p>Private beachfront dining with a cocktail and set menu.</p>
-              </div>
-            </a>
-            <a className="offer-card" href="#">
-              <img src="/images/suite.jpg" alt="Offer" style={{ width: '100%', height: 140, objectFit: 'cover' }} />
-              <div className="offer-content">
-                <strong>Spa indulgence</strong>
-                <p>60 minute massage with aromatherapy oils.</p>
-              </div>
-            </a>
-          </div>
-        </Card>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Card className="card">
-            <CardHead title="Resort map" subtitle="Explore our location" />
-            <div style={{ height: 172, background: `url('/images/resort.jpg') center/cover no-repeat`, borderRadius: 8 }} />
-          </Card>
-          <Card>
-            <CardHead title="Guest reviews" subtitle="Recent guest experiences" />
-            <div className="reviews" style={{ padding: 12 }}>
-              <div className="review">
-                <strong>"Exceptional stay — staff were incredible."</strong>
-                <p className="muted">"Lovely room, great food. Will return." — Jane D.</p>
-              </div>
-              <div className="review">
-                <strong>"Perfect family resort."</strong>
-                <p className="muted">"Kids loved the pool and activities." — The Singhs</p>
-              </div>
+          <div className="flex justify-between items-center text-xs mt-3">
+            <div className={`text-center ${progressPct >= 33 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
+              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 33 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>1</div>
+              Upcoming Stay
+              <span className="block text-[10px] text-[#6B7160]">{shortDate(r.checkIn)}</span>
             </div>
-          </Card>
-        </div>
-      </div>
-      <Card>
-        <CardHead
-          title="Make room for a little more"
-          subtitle="Thoughtful experiences, just a request away"
-          action={
-            <Button variant="ghost" onClick={() => navigate('/guest/services')}>
-              All experiences
-              <ArrowRight size={15} />
-            </Button>
-          }
-        />
-        <div className="quick-experiences">
-          {[
-            { name: 'Spa & wellness', text: 'Find your moment of calm', icon: Leaf },
-            { name: 'In-room dining', text: 'A taste of the coast', icon: Coffee },
-            { name: 'Activities', text: 'Follow your curiosity', icon: Waves },
-            {
-              name: 'Guest support',
-              text: 'We’re here for the little things',
-              icon: MessageSquare,
-            },
-          ].map((x, i) => (
-            <button
-              key={x.name}
-              onClick={() => navigate(i === 3 ? '/guest/support' : '/guest/services?new=1')}
-            >
-              <span>
-                <x.icon size={26} />
-              </span>
-              <strong>{x.name}</strong>
-              <small>{x.text}</small>
-              <ArrowUpRight size={17} />
-            </button>
-          ))}
+
+            <div className={`text-center ${progressPct >= 66 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
+              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 66 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>2</div>
+              Active Stay
+              <span className="block text-[10px] text-[#6B7160]">Room {room?.number ?? '101'}</span>
+            </div>
+
+            <div className={`text-center ${progressPct >= 100 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
+              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 100 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>3</div>
+              Completed Stay
+              <span className="block text-[10px] text-[#6B7160]">{shortDate(r.checkOut)}</span>
+            </div>
+          </div>
         </div>
       </Card>
+
+      <div className="guest-overview grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="stay-card md:col-span-2 p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <img src="/images/suite.jpg" alt="Resort Suite" className="w-full md:w-5/12 h-44 object-cover rounded-xl" />
+            <div className="flex-1 space-y-2">
+              <span className="text-xs font-semibold text-[#C9A227]">YOUR RESERVED ROOM</span>
+              <h2 className="font-serif font-bold text-xl text-[#22261F]">{room?.type ?? 'Ocean Deluxe Suite'}</h2>
+              <p className="text-xs text-[#6B7160]">Room {room?.number} · {room?.floor}</p>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#F0EBE1]">
+                <div>
+                  <small className="text-[#6B7160] block">CHECK-IN</small>
+                  <strong>{shortDate(r.checkIn)}</strong>
+                </div>
+                <div>
+                  <small className="text-[#6B7160] block">CHECK-OUT</small>
+                  <strong>{shortDate(r.checkOut)}</strong>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
+                  Stay Details
+                </Button>
+                <Button size="sm" onClick={() => navigate('/guest/services')}>
+                  Request Add-on
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Loyalty Balance with Animated Counter */}
+        <div className="space-y-4">
+          <Card className={`p-4 ${pulseGold ? 'gold-pulse-effect border-[#C9A227]' : ''}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <small className="text-xs font-semibold text-[#6B7160]">PALM REWARDS BALANCE</small>
+                <h2 className="text-2xl font-bold font-serif text-[#C9A227] mt-1">
+                  <Counter value={g.points} /> <span className="text-xs font-sans font-normal text-[#6B7160]">PTS</span>
+                </h2>
+                <p className="text-[11px] text-[#6B7160] mt-1">Gold Tier Member</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-[#C9A227]/10 text-[#C9A227] flex items-center justify-center font-bold">
+                <Sparkles size={20} />
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-3 justify-center"
+              onClick={() => {
+                triggerGoldPulse();
+                navigate('/guest/loyalty');
+              }}
+            >
+              Redeem Points
+            </Button>
+          </Card>
+
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <small className="text-xs font-semibold text-[#6B7160]">FOLIO OUTSTANDING</small>
+                <h2 className="text-xl font-bold font-serif text-[#22261F] mt-1">{money(Math.max(0, balance))}</h2>
+                <p className="text-[11px] text-[#6B7160]">Room + Add-on charges</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigate('/guest/billing')}>
+                View Bill
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
     </PageMotion>
   );
 }
-function StaffDashboard() {
+
+/* Dedicated Role-Based Staff Dashboards (Strictly role-based via Login, no generic switcher) */
+function StaffRoleDashboard() {
   const { s, actor, act } = useStore();
   const navigate = useNavigate();
-  const tasks = s.tasks.filter((t) => t.assignee === actor!.id),
-    services = s.services.filter((x) => x.assignee === actor!.id);
-  const done = tasks.filter((t) => t.status === 'Completed').length;
-  const workload =
-    tasks.filter((t) => t.status !== 'Completed').length +
-    services.filter((x) => !['Completed', 'Cancelled'].includes(x.status)).length;
+  const role = actor?.role as string;
+  const [guestFormOpen, setGuestFormOpen] = useState(false);
+  const [damageReportOpen, setDamageReportOpen] = useState(false);
+
+  // Role: Receptionist
+  if (role === 'Receptionist') {
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="RECEPTIONIST WORKSPACE · FRONT DESK"
+          title={`Front Desk Operations — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="Check room availability, register walk-in guests, generate guest portal logins, & process check-in/out."
+          actions={
+            <Button onClick={() => setGuestFormOpen(true)}>
+              <UserPlus size={16} /> Walk-in Registration & Guest Credentials
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Today's Arrivals & Check-Ins" subtitle="Confirm guest arrival, assign room, and activate stay" />
+            <div className="table-scroll mt-3">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#FAF7F2] text-[#6B7160]">
+                  <tr>
+                    <th className="p-2.5">Guest Name</th>
+                    <th className="p-2.5">Assigned Room</th>
+                    <th className="p-2.5">Check-In / Out</th>
+                    <th className="p-2.5">Status</th>
+                    <th className="p-2.5 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0EBE1]">
+                  {s.reservations
+                    .filter((r) => ['Confirmed', 'Checked in'].includes(r.status))
+                    .slice(0, 6)
+                    .map((r) => {
+                      const g = s.guests.find((x) => x.id === r.guestId);
+                      const room = s.rooms.find((x) => x.id === r.roomId);
+                      return (
+                        <tr key={r.id}>
+                          <td className="p-2.5 font-bold text-[#22261F]">{g?.name ?? 'Guest'}</td>
+                          <td className="p-2.5">Room {room?.number} ({room?.type})</td>
+                          <td className="p-2.5">{shortDate(r.checkIn)} – {shortDate(r.checkOut)}</td>
+                          <td className="p-2.5"><Badge>{r.status}</Badge></td>
+                          <td className="p-2.5 text-right">
+                            {r.status === 'Confirmed' && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  act(
+                                    { type: 'reservation.status', payload: { id: r.id, status: 'Checked in' } },
+                                    `Guest ${g?.name} checked in successfully!`
+                                  )
+                                }
+                              >
+                                Check In
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Room Availability Check" subtitle="Search ready rooms by wing" />
+            <div className="space-y-2 mt-3 max-h-72 overflow-y-auto">
+              {s.rooms.slice(0, 8).map((rm) => (
+                <div key={rm.id} className="p-2.5 border border-[#F0EBE1] rounded-lg flex items-center justify-between text-xs">
+                  <div>
+                    <strong className="block text-[#22261F]">Room {rm.number}</strong>
+                    <span className="text-[11px] text-[#6B7160]">{rm.type} · ₹{rm.rate}/night</span>
+                  </div>
+                  <Badge>{rm.status}</Badge>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Walk-in Guest Registration & Auto Guest Credentials Popup Modal */}
+        {guestFormOpen && (
+          <FormModal
+            title="Register Walk-in Guest & Issue Credentials"
+            description="Create new reservation and auto-generate Guest Portal credentials for the guest."
+            initial={{ checkIn: today(), checkOut: dateOffset(2) }}
+            fields={[
+              { name: 'name', label: 'Guest Full Name', required: true, placeholder: 'e.g. Ramesh Verma' },
+              { name: 'email', label: 'Guest Email (Login ID)', type: 'email', required: true, placeholder: 'ramesh@example.com' },
+              { name: 'phone', label: 'Phone Number', required: true, placeholder: '+91 98765 00000' },
+              {
+                name: 'roomId',
+                label: 'Assign Room',
+                type: 'select',
+                required: true,
+                options: s.rooms.filter((r) => r.status === 'Ready').map((r) => ({ value: r.id, label: `Room ${r.number} (${r.type} - ₹${r.rate})` })),
+              },
+              { name: 'checkIn', label: 'Check-In Date', type: 'date', required: true },
+              { name: 'checkOut', label: 'Check-Out Date', type: 'date', required: true },
+            ]}
+            onClose={() => setGuestFormOpen(false)}
+            onSubmit={(values) => {
+              const res = act({
+                type: 'reservation.create',
+                payload: {
+                  name: values.name,
+                  email: values.email,
+                  phone: values.phone,
+                  roomId: values.roomId,
+                  checkIn: values.checkIn || today(),
+                  checkOut: values.checkOut || dateOffset(2),
+                  adults: 2,
+                },
+              }, 'Walk-in reservation confirmed! Guest credentials generated.');
+              return res;
+            }}
+            submit="Confirm Walk-In & Generate Login"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Role: Housekeeping
+  if (role === 'Housekeeping') {
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="HOUSEKEEPING WORKSPACE · ROOM CLEANING & TURNOVER"
+          title={`Housekeeping Board — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="View assigned turnover tasks, update cleaning statuses, and report room damage / lost & found items."
+          actions={
+            <Button variant="outline" onClick={() => setDamageReportOpen(true)}>
+              <AlertCircle size={16} /> Report Damage / Lost & Found
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Assigned Turnover Cleaning Tasks" subtitle="Update status: Dirty → Cleaning → Inspection" />
+            <div className="space-y-3 mt-3">
+              {s.tasks
+                .filter((t) => t.role === 'Housekeeping')
+                .map((task) => {
+                  const rm = s.rooms.find((r) => r.id === task.roomId);
+                  return (
+                    <div key={task.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                      <div>
+                        <strong className="block text-sm text-[#22261F]">{task.title}</strong>
+                        <span className="text-xs text-[#6B7160]">Room {rm?.number} ({rm?.type}) · Priority: {task.priority}</span>
+                        <div className="mt-1"><Badge>{task.status}</Badge></div>
+                      </div>
+                      <div className="flex gap-2">
+                        {task.status === 'Pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'In progress' } }, 'Cleaning started')}
+                          >
+                            Start Cleaning
+                          </Button>
+                        )}
+                        {task.status === 'In progress' && (
+                          <Button
+                            size="sm"
+                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'Inspection' } }, 'Task sent for management inspection')}
+                          >
+                            Request Inspection
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Dirty Rooms Board" subtitle="Rooms awaiting turnover" />
+            <div className="space-y-2 mt-3">
+              {s.rooms
+                .filter((r) => r.status === 'Dirty')
+                .map((r) => (
+                  <div key={r.id} className="p-3 border border-[#F0EBE1] rounded-lg flex items-center justify-between text-xs">
+                    <div>
+                      <strong className="block text-[#22261F]">Room {r.number}</strong>
+                      <span className="text-[#6B7160]">{r.type}</span>
+                    </div>
+                    <Badge>Dirty</Badge>
+                  </div>
+                ))}
+              {!s.rooms.some((r) => r.status === 'Dirty') && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">All rooms cleaned!</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {damageReportOpen && (
+          <FormModal
+            title="Report Room Damage or Lost & Found"
+            description="Log item found or damage observed during turnover."
+            fields={[
+              {
+                name: 'roomId',
+                label: 'Room Number',
+                type: 'select',
+                required: true,
+                options: s.rooms.map((r) => ({ value: r.id, label: `Room ${r.number}` })),
+              },
+              { name: 'title', label: 'Item / Damage Description', required: true, placeholder: 'e.g. Silver reading glasses found on table' },
+            ]}
+            onClose={() => setDamageReportOpen(false)}
+            onSubmit={(values) => {
+              return act({ type: 'found.create', payload: { roomId: values.roomId, title: values.title } }, 'Lost & Found item logged!');
+            }}
+            submit="Submit Report"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Role: Cashier
+  if (role === 'Cashier') {
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="CASHIER WORKSPACE · BILLING & PAYMENTS"
+          title={`Cashier Desk — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="View guest folios, accept payments via Card/UPI/Cash/Bank, issue refunds, and print formal invoices."
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Guest Folios & Payment Processing" subtitle="Select a stay to collect payment or view charges" />
+            <div className="table-scroll mt-3">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#FAF7F2] text-[#6B7160]">
+                  <tr>
+                    <th className="p-2.5">Guest</th>
+                    <th className="p-2.5">Room</th>
+                    <th className="p-2.5">Total Bill</th>
+                    <th className="p-2.5">Paid</th>
+                    <th className="p-2.5">Balance</th>
+                    <th className="p-2.5 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0EBE1]">
+                  {s.reservations
+                    .filter((r) => ['Checked in', 'Completed'].includes(r.status))
+                    .slice(0, 6)
+                    .map((r) => {
+                      const g = s.guests.find((x) => x.id === r.guestId);
+                      const room = s.rooms.find((x) => x.id === r.roomId);
+                      const f = folio(s, r);
+                      return (
+                        <tr key={r.id}>
+                          <td className="p-2.5 font-bold text-[#22261F]">{g?.name}</td>
+                          <td className="p-2.5">Room {room?.number}</td>
+                          <td className="p-2.5">{money(f.total)}</td>
+                          <td className="p-2.5 text-[#2E7D4F]">{money(f.paid)}</td>
+                          <td className="p-2.5 font-bold text-[#C1443A]">{money(f.balance)}</td>
+                          <td className="p-2.5 text-right">
+                            {f.balance > 0 ? (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  act({
+                                    type: 'payment.create',
+                                    payload: { reservationId: r.id, amount: f.balance, method: 'Card' },
+                                  }, `Payment of ${money(f.balance)} collected!`)
+                                }
+                              >
+                                Accept Payment
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-[#2E7D4F] font-bold">● Settled</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Recent Payment Transactions" subtitle="Live ledger of collections" />
+            <div className="space-y-2 mt-3 max-h-72 overflow-y-auto">
+              {s.payments.slice(0, 6).map((p) => (
+                <div key={p.id} className="p-2.5 border border-[#F0EBE1] rounded-lg text-xs flex justify-between">
+                  <div>
+                    <strong className="block text-[#22261F]">{p.type === 'Payment' ? 'Received' : 'Refund'}</strong>
+                    <span className="text-[#6B7160]">{p.method}</span>
+                  </div>
+                  <strong className={`font-mono ${p.type === 'Payment' ? 'text-[#2E7D4F]' : 'text-[#C1443A]'}`}>
+                    {p.type === 'Payment' ? '+' : '-'}{money(p.amount)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </PageMotion>
+    );
+  }
+
+  // Default fallback for Maintenance, Gardener, F&B, Spa roles
   return (
     <PageMotion>
       <PageTitle
-        eyebrow={`${actor!.role.toUpperCase()} · YOUR DAILY WORKSPACE`}
-        title={`A great day starts with you, ${actor!.name.split(' ')[0]}.`}
-        description="Your priorities, your team, and all the little details in one place."
+        eyebrow={`${role.toUpperCase()} WORKSPACE · DEPARTMENT OPERATIONS`}
+        title={`${role} Portal — Welcome, ${actor!.name.split(' ')[0]}`}
+        description={`Manage ${role} work requests, update service status, and complete resort duties.`}
       />
-      <div className="staff-welcome">
-        <div>
-          <span className="eyebrow">TODAY’S SHIFT</span>
-          <h2>{actor!.shift}</h2>
-          <p>
-            <span className="live-dot" /> You’re on the {actor!.role.toLowerCase()} team
-          </p>
-        </div>
-        <div>
-          <Sun size={38} />
-          <span>Let’s make someone’s day.</span>
-        </div>
-      </div>
-      <div className="stats-grid">
-        <Stat
-          label="Open assignments"
-          value={workload}
-          icon={ClipboardCheck}
-          detail="Your tasks and service requests"
-        />
-        <Stat
-          label="Completed tasks"
-          value={done}
-          icon={Sparkles}
-          detail="Every detail makes a difference"
-        />
-        <Stat
-          label="High priority"
-          value={tasks.filter((t) => t.priority === 'High' && t.status !== 'Completed').length}
-          icon={Clock3}
-          detail="Give these a little attention first"
-        />
-        <Stat
-          label="Service requests"
-          value={services.filter((x) => x.status === 'Requested').length}
-          icon={Coffee}
-          detail="Awaiting your acceptance"
-        />
-      </div>
-      <div className="dashboard-middle">
-        <Card>
-          <CardHead
-            title="Your priorities"
-            subtitle="A little focus for a seamless day"
-            action={
-              can(s, actor!, 'tasks') ? (
-                <Button variant="ghost" onClick={() => navigate('/staff/tasks')}>
-                  All tasks
-                  <ArrowRight size={15} />
-                </Button>
-              ) : undefined
-            }
-          />
-          <div className="task-preview-list">
-            {tasks
-              .filter((t) => t.status !== 'Completed')
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+        <Card className="p-5">
+          <CardHead title={`Open ${role} Service Requests & Tasks`} subtitle="Manage active work orders" />
+          <div className="space-y-3 mt-3">
+            {s.services
+              .filter((x) => x.status !== 'Completed')
               .slice(0, 5)
-              .map((t) => (
-                <div key={t.id} className="task-preview">
-                  <div className="task-preview-check">
-                    <ClipboardCheck size={20} />
-                  </div>
+              .map((srv) => (
+                <div key={srv.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
                   <div>
-                    <strong>{t.title}</strong>
-                    <p>
-                      Room {s.rooms.find((r) => r.id === t.roomId)?.number} · Due{' '}
-                      {t.deadline.replace('T', ' ')}
-                    </p>
-                    <Badge>{t.priority}</Badge>
+                    <strong className="block text-sm text-[#22261F]">{srv.name}</strong>
+                    <span className="text-xs text-[#6B7160]">{srv.options || 'Standard request'} · {srv.time}</span>
+                    <div className="mt-1"><Badge>{srv.status}</Badge></div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/staff/tasks')}>
-                    Open
-                    <ArrowUpRight size={14} />
-                  </Button>
+                  {srv.status === 'Requested' && (
+                    <Button
+                      size="sm"
+                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Service started')}
+                    >
+                      Start Service
+                    </Button>
+                  )}
+                  {srv.status === 'In progress' && (
+                    <Button
+                      size="sm"
+                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Service completed & charged to folio')}
+                    >
+                      Complete & Charge
+                    </Button>
+                  )}
                 </div>
               ))}
-            {!tasks.some((t) => t.status !== 'Completed') && (
-              <Empty
-                title="A clear task list"
-                description="New assignments from management will appear here."
-              />
+            {!s.services.some((x) => x.status !== 'Completed') && (
+              <p className="text-xs text-[#6B7160] py-6 text-center">No open service requests right now.</p>
             )}
           </div>
         </Card>
-        <Card>
-          <CardHead title="Your activity" subtitle="Small steps, great hospitality" />
-          <div className="timeline">
-            {s.audit
-              .filter((l) => l.actor === actor!.name)
-              .slice(0, 6)
-              .map((l) => (
-                <div key={l.id}>
-                  <span className="timeline-dot" />
-                  <strong>{l.action.replaceAll('.', ' · ')}</strong>
-                  <p>{l.detail}</p>
-                  <small>
-                    {shortDate(l.date)} ·{' '}
-                    {new Date(l.date).toLocaleTimeString('en-GB', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </small>
+
+        <Card className="p-5">
+          <CardHead title="Department Tasks" subtitle="Assigned work orders" />
+          <div className="space-y-3 mt-3">
+            {s.tasks
+              .filter((t) => t.role === (role as any))
+              .map((task) => (
+                <div key={task.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
+                  <div>
+                    <strong className="block text-xs text-[#22261F]">{task.title}</strong>
+                    <span className="text-[11px] text-[#6B7160]">Priority: {task.priority}</span>
+                  </div>
+                  <Badge>{task.status}</Badge>
                 </div>
               ))}
           </div>

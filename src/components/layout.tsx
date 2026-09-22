@@ -266,16 +266,33 @@ export function Layout() {
             >
               <MenuIcon size={22} />
             </Button>
-            <nav className="breadcrumbs" aria-label="Breadcrumb">
-              <Link to={`${base}/dashboard`}>{actor.module}</Link>
-              <ChevronRight size={13} />
-              <Link to={`${base}/${current?.path ?? 'dashboard'}`}>
+            <nav className="breadcrumbs flex items-center gap-2 text-xs" aria-label="Breadcrumb">
+              <Link to={`${base}/dashboard`} className="text-[#6B7160] hover:text-[#C9A227] transition-colors">
+                Dashboard
+              </Link>
+              <span className="crumb-sep text-[#C9A227] font-bold">/</span>
+              <span className="text-[#6B7160] font-medium">{actor.module}</span>
+              <span className="crumb-sep text-[#C9A227] font-bold">/</span>
+              <Link
+                to={`${base}/${current?.path ?? 'dashboard'}`}
+                className={`transition-colors ${
+                  location.pathname.split('/').length <= 3
+                    ? 'crumb-active text-[#22261F] font-bold'
+                    : 'text-[#6B7160] hover:text-[#C9A227]'
+                }`}
+              >
                 {current?.label ?? 'Overview'}
               </Link>
               {location.pathname.split('/').length > 3 && (
                 <>
-                  <ChevronRight size={13} />
-                  <span>Details</span>
+                  <span className="crumb-sep text-[#C9A227] font-bold">/</span>
+                  <span className="crumb-active text-[#22261F] font-bold">
+                    {location.search.includes('new=1')
+                      ? 'New Reservation'
+                      : location.pathname.includes('accounts')
+                      ? 'Account Creation'
+                      : 'Details'}
+                  </span>
                 </>
               )}
             </nav>

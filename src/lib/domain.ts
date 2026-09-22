@@ -66,6 +66,7 @@ export interface Account {
   module: Module;
   role: Role;
   active: boolean;
+  createdBy?: string;
   guestId?: string;
   shift: string;
 }
@@ -1428,22 +1429,27 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     case 'account.create': {
-      owner();
+      assert(a.module === 'Owner' || a.module === 'Management', 'Only Owner and Managers can create accounts.');
+      if (a.module === 'Management') {
+        assert(p.role !== 'Owner' && p.role !== 'Management', 'Managers can only create Staff accounts.');
+      }
       const email = clean(p.email, 'Email').toLowerCase();
-      assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), 'Enter a valid email.');
-      assert(!s.accounts.some((x) => x.email.toLowerCase() === email), 'Email already exists.');
+      assert(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), 'Enter a valid email address.');
+      assert(!s.accounts.some((x) => x.email.toLowerCase() === email), 'An account already exists with this email address.');
       assert(
         p.role === 'Management' || roles.includes(p.role),
         'Choose a staff or management role.',
       );
+      const generatedPass = p.password || `PalmPass#${Math.floor(1000 + Math.random() * 9000)}`;
       s.accounts.push({
         id: uid('A'),
         name: clean(p.name, 'Name'),
         email,
-        password: demoPassword(s),
+        password: generatedPass,
         module: p.role === 'Management' ? 'Management' : 'Staff',
         role: p.role,
         active: true,
+        createdBy: a.id,
         shift: p.shift ?? '09:00 – 17:00',
       });
       break;
@@ -1456,14 +1462,17 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         target.shift = clean(p.shift, 'Shift');
       }
       if (p.active !== undefined) {
-        owner();
+        assert(a.module === 'Owner' || a.module === 'Management', 'Only Owner or Manager can manage account status.');
         assert(target.id !== a.id, 'You cannot deactivate your own account.');
+        if (a.module === 'Management') {
+          assert(target.module === 'Staff', 'Managers can only manage Staff accounts.');
+        }
         target.active = !!p.active;
       }
       if (p.reset) {
-        owner();
+        assert(a.module === 'Owner' || a.module === 'Management', 'Only Owner or Manager can reset passwords.');
         assert(target.module !== 'Owner', 'Owner credential resets are unavailable in the demo.');
-        target.password = demoPassword(s);
+        target.password = p.password || demoPassword(s);
       }
       break;
     }
