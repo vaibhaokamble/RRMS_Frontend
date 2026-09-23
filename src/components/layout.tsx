@@ -104,11 +104,12 @@ export const moduleIcons = {
 export function Layout() {
   const { s, actor, switchDemo, logout, act, reset } = useStore();
   const searchRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (
-        event.key === '/' &&
+        (event.key === '/' || ((event.ctrlKey || event.metaKey) && event.key === 'k')) &&
         !['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) &&
         !target.isContentEditable
       ) {
@@ -123,9 +124,46 @@ export function Layout() {
     [notifications, setNotifications] = useState(false),
     [resetOpen, setResetOpen] = useState(false),
     [help, setHelp] = useState(false),
-    [search, setSearch] = useState('');
+    [search, setSearch] = useState(''),
+    [searchOpen, setSearchOpen] = useState(false),
+    [searchIndex, setSearchIndex] = useState(0);
   const location = useLocation(),
     navigate = useNavigate();
+  useEffect(() => {
+    setSearch('');
+    setSearchOpen(false);
+    setMobile(false);
+  }, [location.pathname, actor?.id]);
+  useEffect(() => {
+    if (!mobile) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    sidebarRef.current?.querySelector<HTMLButtonElement>('.mobile-close')?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobile(false);
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(sidebarRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), select, [tabindex="0"]') ?? []).filter((node) => node.getClientRects().length);
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    const desktop = window.matchMedia('(min-width: 801px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMobile(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      document.removeEventListener('keydown', handleKey);
+      desktop.removeEventListener('change', closeOnDesktop);
+      previous?.focus();
+    };
+  }, [mobile]);
   if (!actor) return <Navigate to="/login" replace />;
   const base = `/${actor.module.toLowerCase()}`;
   const nav = (
@@ -143,7 +181,7 @@ export function Layout() {
     }
   };
   const results = search.trim()
-    ? nav.filter((i) => i.label.toLowerCase().includes(search.toLowerCase()))
+    ? nav.filter((i) => i.label.toLowerCase().includes(search.trim().toLowerCase()))
     : [];
   return (
     <div className={`app-shell theme-${actor.module.toLowerCase()}`}>
@@ -157,8 +195,8 @@ export function Layout() {
           onClick={() => setMobile(false)}
         />
       )}
-      <aside className={`sidebar ${mobile ? 'sidebar-open' : ''}`}>
-        <Link to={`${base}/dashboard`} className="brand">
+      <aside ref={sidebarRef} id="workspace-navigation" className={`sidebar ${mobile ? 'sidebar-open' : ''}`} role={mobile ? 'dialog' : undefined} aria-modal={mobile || undefined} aria-label={mobile ? 'Workspace navigation' : undefined}>
+        <Link to={`${base}/dashboard`} className="brand" onClick={() => setMobile(false)}>
           <span className="brand-mark">
             <Palmtree size={26} />
           </span>
@@ -209,7 +247,7 @@ export function Layout() {
             const Icon = item.icon;
             const count =
               item.path === 'support'
-                ? s.complaints.filter((c) => c.status === 'Open').length
+                ? s.complaints.filter((c) => c.status === 'Open' && (actor.module !== 'Guest' || c.guestId === actor.guestId)).length
                 : item.path === 'tasks'
                   ? s.tasks.filter(
                       (t) =>
@@ -254,7 +292,7 @@ export function Layout() {
           </div>
         </div>
       </aside>
-      <div className="main-shell">
+      <div className="main-shell" inert={mobile || undefined}>
         <header className="topbar">
           <div className="topbar-left">
             <Button
@@ -263,30 +301,25 @@ export function Layout() {
               className="mobile-toggle"
               onClick={() => setMobile(true)}
               aria-label="Open navigation"
+              aria-expanded={mobile}
+              aria-controls="workspace-navigation"
             >
               <MenuIcon size={22} />
             </Button>
-            <nav className="breadcrumbs flex items-center gap-2 text-xs" aria-label="Breadcrumb">
-              <Link to={`${base}/dashboard`} className="text-[#6B7160] hover:text-[#C9A227] transition-colors">
-                Dashboard
-              </Link>
-              <span className="crumb-sep text-[#C9A227] font-bold">/</span>
-              <span className="text-[#6B7160] font-medium">{actor.module}</span>
-              <span className="crumb-sep text-[#C9A227] font-bold">/</span>
+            <nav className="breadcrumbs" aria-label="Breadcrumb">
+              <Link to={`${base}/dashboard`}>{actor.module}</Link>
+              <ChevronRight size={13} className="crumb-sep" aria-hidden="true" />
               <Link
                 to={`${base}/${current?.path ?? 'dashboard'}`}
-                className={`transition-colors ${
-                  location.pathname.split('/').length <= 3
-                    ? 'crumb-active text-[#22261F] font-bold'
-                    : 'text-[#6B7160] hover:text-[#C9A227]'
-                }`}
+                className={location.pathname.split('/').length <= 3 ? 'crumb-active' : ''}
+                aria-current={location.pathname.split('/').length <= 3 ? 'page' : undefined}
               >
                 {current?.label ?? 'Overview'}
               </Link>
               {location.pathname.split('/').length > 3 && (
                 <>
-                  <span className="crumb-sep text-[#C9A227] font-bold">/</span>
-                  <span className="crumb-active text-[#22261F] font-bold">
+                  <ChevronRight size={13} className="crumb-sep" aria-hidden="true" />
+                  <span className="crumb-active" aria-current="page">
                     {location.search.includes('new=1')
                       ? 'New Reservation'
                       : location.pathname.includes('accounts')
@@ -298,25 +331,50 @@ export function Layout() {
             </nav>
           </div>
           <div className="topbar-actions">
-            <div className="global-search">
+            <div className="global-search" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setSearchOpen(false); }}>
               <Search size={16} />
               <input
                 ref={searchRef}
                 aria-label="Search workspace"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={searchOpen && Boolean(search.trim())}
+                aria-controls={searchOpen && search.trim() ? 'workspace-search-results' : undefined}
+                aria-activedescendant={searchOpen && results[searchIndex] ? `workspace-result-${results[searchIndex].path}` : undefined}
                 placeholder="Search your workspace…"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setSearchOpen(true)}
+                onChange={(e) => { setSearch(e.target.value); setSearchOpen(true); setSearchIndex(0); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { setSearchOpen(false); e.stopPropagation(); }
+                  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSearchOpen(true);
+                    setSearchIndex((index) => results.length ? (index + (e.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length : 0);
+                  }
+                  if (e.key === 'Enter' && searchOpen && results[searchIndex]) {
+                    e.preventDefault();
+                    navigate(`${base}/${results[searchIndex].path}`);
+                    setSearch('');
+                    setSearchOpen(false);
+                  }
+                }}
               />
               <kbd>/</kbd>
-              {search && (
-                <div className="search-results">
+              {search.trim() && searchOpen && (
+                <div className="search-results" id="workspace-search-results" role="listbox" aria-label="Matching screens">
                   {results.length ? (
-                    results.map((r) => (
+                    results.map((r, index) => (
                       <button
                         key={r.path}
+                        id={`workspace-result-${r.path}`}
+                        role="option"
+                        aria-selected={searchIndex === index}
+                        onMouseEnter={() => setSearchIndex(index)}
                         onClick={() => {
                           navigate(`${base}/${r.path}`);
                           setSearch('');
+                          setSearchOpen(false);
                         }}
                       >
                         <r.icon size={16} />
@@ -396,6 +454,7 @@ export function Layout() {
                 key={m}
                 onClick={() => switchModule(m)}
                 className={actor.module === m ? 'active' : ''}
+                aria-pressed={actor.module === m}
               >
                 {m}
               </button>
@@ -413,7 +472,7 @@ export function Layout() {
             </select>
           )}
         </div>
-        <main id="main-content" className="main-content">
+        <main id="main-content" className="main-content" tabIndex={-1}>
           <Outlet />
         </main>
         <footer className="app-footer">

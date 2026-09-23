@@ -696,26 +696,60 @@ export function Services() {
         }
       />
       {guest && (
-        <div className="service-menu">
-          {serviceMenu.map((item) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {serviceMenu.map((item, idx) => {
             const Icon = icons[item.category];
+            // Assigning some luxury placeholders based on category
+            const imageMap: Record<string, string> = {
+              Spa: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80',
+              'Food & Beverage': 'https://images.unsplash.com/photo-1414235077428-33898dea23ea?auto=format&fit=crop&w=600&q=80',
+              Activities: 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?auto=format&fit=crop&w=600&q=80',
+            };
+            const defaultImage = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80';
+            
             return (
-              <button
-                className="service-option-card"
-                key={item.name}
-                onClick={() => setParams({ new: '1', service: item.name })}
-              >
-                <span className={`service-icon service-${item.icon}`}>
-                  <Icon size={28} />
-                </span>
-                <small>{item.category.toUpperCase()}</small>
-                <h3>{item.name}</h3>
-                <p>{item.description}</p>
-                <div>
-                  <strong>{money(item.amount)}</strong>
-                  <ArrowUpRight size={17} />
+              <Card key={item.name} className="service-catalog-card overflow-hidden group">
+                <div className="relative h-48 overflow-hidden bg-[#FAF7F2]">
+                  <img
+                    src={imageMap[item.category] || defaultImage}
+                    alt={item.name}
+                    loading="lazy"
+                    onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/resort.jpg'; }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <span className="absolute top-4 left-4 bg-[#1F3A2E]/90 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full backdrop-blur-md border border-white/10 shadow-sm">
+                    {item.category}
+                  </span>
+                  <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/90 text-[#1F3A2E] flex items-center justify-center backdrop-blur-md shadow-sm">
+                    <Icon size={16} />
+                  </div>
                 </div>
-              </button>
+                <div className="p-5 space-y-3">
+                  <h3 className="font-serif font-bold text-lg text-[#22261F] group-hover:text-[#C9A227] transition-colors line-clamp-1">
+                    {item.name}
+                  </h3>
+                  <p className="text-sm text-[#6B7160] line-clamp-2 leading-relaxed">
+                    {item.description}
+                  </p>
+                  <div className="flex items-center justify-between pt-4 border-t border-[#F0EBE1] mt-2">
+                    <div>
+                      <span className="text-[10px] text-[#6B7160] block uppercase font-semibold tracking-wider">Per Request</span>
+                      <strong className="text-base text-[#1F3A2E] font-serif">{money(item.amount)}</strong>
+                    </div>
+                    <Button
+                      size="sm"
+                      aria-label={`Request ${item.name}`}
+                      className="bg-[#1F3A2E] text-white hover:bg-[#1F3A2E]/90 group-hover:bg-[#C9A227] transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setParams({ new: '1', service: item.name });
+                      }}
+                    >
+                      Request <ArrowUpRight size={14} className="ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             );
           })}
         </div>

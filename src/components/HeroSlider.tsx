@@ -1,93 +1,79 @@
-import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useState } from 'react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 
 const slides = [
   {
-    id: 's1',
     image: '/images/resort.jpg',
-    title: 'Where every stay feels like coming home',
-    subtitle: 'Tailored experiences, impeccable service, and coastal calm',
+    title: 'Thoughtful hospitality.\nBeautiful stays.',
+    subtitle: 'Every room, every detail, every guest. Bring it all together in one place.',
+    label: 'A little care. An exceptional stay.',
   },
   {
-    id: 's2',
     image: '/images/suite.jpg',
-    title: 'Sunset dinners and private moments',
-    subtitle: 'Curated dining experiences on the shoreline',
+    title: 'A warm welcome,\ndown to the last detail.',
+    subtitle: 'Keep your rooms ready and make each arrival feel effortless.',
+    label: 'Ready for your next arrival',
   },
   {
-    id: 's3',
     image: '/images/resort.jpg',
-    title: 'Your sanctuary by the sea',
-    subtitle: 'Spacious suites, private terraces, and lingering mornings',
+    title: 'Your resort.\nWorking in harmony.',
+    subtitle: 'A clear view of your property, with more time for the people who make it special.',
+    label: 'One resort. Every perspective.',
   },
 ];
 
-export default function HeroSlider() {
+export default function HeroSlider({
+  resortName,
+  location,
+  onExplore,
+}: {
+  resortName: string;
+  location: string;
+  onExplore: () => void;
+}) {
   const [index, setIndex] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 6000);
-    return () => clearInterval(t);
-  }, []);
+  const reduced = useReducedMotion();
+  const slide = slides[index];
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl hero-slider" style={{ height: 420 }}>
-      <AnimatePresence initial={false} mode="wait">
-        {slides.map((s, i) =>
-          i === index ? (
-            <motion.div
-              key={s.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8 }}
-              className="absolute inset-0"
-            >
-              <motion.img
-                src={s.image}
-                alt={s.title}
-                className="object-cover w-full h-full"
-                initial={{ scale: 1.04 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 10 }}
-                style={{ willChange: 'transform' }}
-              />
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(4,18,12,0.9) 0%, rgba(20,34,28,0.7) 35%, rgba(24,38,30,0.15) 70%, rgba(24,38,30,0.02) 100%)' }} />
-              <div className="absolute left-8 top-20 max-w-2xl text-white">
-                <motion.h1
-                  initial={{ y: 22, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.12, duration: 0.6 }}
-                  className="font-serif text-4xl leading-tight"
-                >
-                  {s.title}
-                </motion.h1>
-                <motion.p
-                  initial={{ y: 12, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.22, duration: 0.6 }}
-                  className="mt-4 text-sm text-amber-100"
-                >
-                  {s.subtitle}
-                </motion.p>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.38 }} className="mt-6">
-                  <button className="btn btn-primary">Explore experiences</button>
-                </motion.div>
-              </div>
-            </motion.div>
-          ) : null,
-        )}
-      </AnimatePresence>
-      <div className="absolute right-6 bottom-6 flex gap-2">
-        {slides.map((s, i) => (
-          <button
-            key={s.id}
-            aria-label={`Slide ${i + 1}`}
-            onClick={() => setIndex(i)}
-            className={`w-10 h-10 rounded-md border-2 border-white/20 bg-white/10 text-white/90 ${
-              i === index ? 'ring-2 ring-amber-300/50' : 'hover:bg-white/20'
-            }`}
-          />
-        ))}
+    <section className="hero-slider" aria-roledescription="carousel" aria-label="Your resort">
+      <img className="hero-image" src={slide.image} alt="" fetchPriority="high" />
+      <div className="hero-shade" />
+      <motion.div
+        key={index}
+        className="hero-copy"
+        initial={reduced ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span className="hero-eyebrow"><span />{slide.label}</span>
+        <h2>{slide.title}</h2>
+        <p>{slide.subtitle}</p>
+        <button type="button" className="hero-action" onClick={onExplore}>
+          View room availability <ArrowUpRight size={16} />
+        </button>
+      </motion.div>
+      <div className="hero-property">
+        <MapPin size={14} />
+        <span><strong>{resortName}</strong><small>{location}</small></span>
       </div>
-    </div>
+      <div className="hero-controls" aria-label="Banner controls">
+        <button type="button" aria-label="Previous slide" onClick={() => setIndex((index + slides.length - 1) % slides.length)}>
+          <ChevronLeft size={17} />
+        </button>
+        <div className="hero-dots">
+          {slides.map((slide, i) => (
+            <button key={slide.label} type="button" aria-label={`Slide ${i + 1}`} aria-pressed={i === index} onClick={() => setIndex(i)}>
+              <span />
+            </button>
+          ))}
+        </div>
+        <button type="button" aria-label="Next slide" onClick={() => setIndex((index + 1) % slides.length)}>
+          <ChevronRight size={17} />
+        </button>
+      </div>
+    </section>
   );
 }

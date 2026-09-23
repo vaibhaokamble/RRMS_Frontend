@@ -1,5 +1,5 @@
-@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @theme {
   --font-serif: 'Playfair Display', Georgia, serif;
@@ -289,10 +289,93 @@ svg {
   margin-bottom: 10px;
 }
 .theme-guest {
-  --accent: #407db3;
-  --accent-light: #e9f1f8;
-  --brand: #3e7197;
+  --accent: #C9A227;
+  --accent-light: rgba(201, 162, 39, 0.12);
+  --brand: #1F3A2E;
 }
+
+.theme-guest.app-shell {
+  background-color: #FAF7F2;
+}
+.theme-guest .sidebar {
+  background-color: #1F3A2E;
+  color: #FFFFFF;
+  border-right: none;
+}
+.theme-guest .sidebar a, .theme-guest .sidebar button:not(.btn-primary) {
+  color: #FAF7F2;
+}
+.theme-guest .sidebar .nav-item:hover, .theme-guest .sidebar .nav-active {
+  background: rgba(250, 247, 242, 0.1);
+  color: #C9A227;
+  border-left-color: #C9A227;
+}
+.theme-guest .sidebar .nav-item.nav-active {
+  background: rgba(201, 162, 39, 0.14);
+}
+.theme-guest .topbar {
+  background-color: #FAF7F2;
+  border-bottom: 1px solid #F0EBE1;
+}
+.theme-guest .sidebar .brand {
+  color: #FAF7F2;
+}
+.theme-guest .sidebar .resort-switch {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.theme-guest .sidebar .resort-switch:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.theme-guest .sidebar .workspace-chip {
+  background: rgba(201, 162, 39, 0.15);
+  color: #C9A227;
+}
+.theme-guest .sidebar .workspace-chip span {
+  background: #C9A227;
+}
+.theme-guest .sidebar .nav-section {
+  color: rgba(250, 247, 242, 0.5);
+}
+
+/* Luxury Utility Classes */
+.theme-guest .card {
+  background: #FFFFFF;
+  border: 1px solid #F0EBE1;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(31, 58, 46, 0.04);
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out;
+}
+.theme-guest .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(31, 58, 46, 0.08);
+  border-color: rgba(201, 162, 39, 0.3);
+}
+
+.theme-guest .loyalty-banner,
+.theme-guest .support-banner {
+  background: #1F3A2E;
+  color: #FFFFFF;
+  border-radius: 16px;
+  border: none;
+}
+.theme-guest .loyalty-banner h2,
+.theme-guest .support-banner h2 {
+  color: #FFFFFF;
+}
+.theme-guest .loyalty-banner p,
+.theme-guest .support-banner p {
+  color: rgba(250, 247, 242, 0.85);
+}
+.theme-guest .loyalty-card {
+  background: rgba(250, 247, 242, 0.1);
+  border: 1px solid rgba(201, 162, 39, 0.3);
+  color: #FFFFFF;
+}
+.theme-guest .loyalty-card strong {
+  color: #C9A227;
+}
+
 .theme-staff {
   --accent: #478065;
   --accent-light: #e9f1e9;
@@ -674,27 +757,16 @@ svg {
 .resort-banner:before {
   background: linear-gradient(95deg, rgba(4,18,12,0.9) 0%, rgba(20,34,28,0.85) 30%, rgba(24,38,30,0.45) 60%, rgba(24,38,30,0.05) 100%);
 }
-.resort-banner { border-radius: 18px; height: 320px; }
-.resort-banner .banner-content { padding: 34px 42px; max-width: 720px; }
-.resort-banner .banner-content h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 42px; }
-.resort-banner .banner-content p { font-size: 13px; color: rgba(230,239,218,0.95); }
 
 /* Image zoom and focal effect */
-.card img, .stay-card img {
+.card-zoom-img img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
   display: block;
   transition: transform var(--anim-medium), filter var(--anim-medium);
-  border-top-left-radius: 14px;
-  border-top-right-radius: 14px;
 }
-.card:hover img, .stay-card:hover img { transform: scale(1.03); filter: saturate(1.05) contrast(1.02); }
-
-/* Luxury stay card */
-.stay-card { display:flex; gap:18px; align-items:stretch; padding:0; overflow:hidden; }
-.stay-card > img { width: 46%; object-fit: cover; }
-.stay-card > div { padding: 20px; display:flex; flex-direction:column; gap:12px; }
-.stay-card h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin:0; }
+.card-zoom-img:hover img { transform: scale(1.04); filter: saturate(1.05) contrast(1.02); }
 
 /* Pastel quick-action cards */
 .quick-experiences { display:flex; gap:12px; flex-wrap:wrap; }

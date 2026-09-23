@@ -358,7 +358,7 @@ describe('Finance, loyalty, permissions and account controls', () => {
         'account-G1',
       ),
     ).toThrow('not available');
-    expect(() => run('account.create', { name: 'X' }, 'manager')).toThrow('Only the Owner');
+    expect(() => run('account.create', { name: 'X', role: 'Management' }, 'manager')).toThrow('Managers can only create Staff accounts');
     expect(() => run('policies.update', { tax: 18 }, 'manager')).toThrow('Only the Owner');
   });
   it('applies revoked permissions and inactive accounts on every mutation', () => {

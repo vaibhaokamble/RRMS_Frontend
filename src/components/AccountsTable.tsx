@@ -76,13 +76,17 @@ export function AccountsTable({ title, subtitle }: { title?: string; subtitle?: 
     );
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard!`);
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied to clipboard!`);
+    } catch {
+      toast.error('Could not copy. Please select and copy the text manually.');
+    }
   };
 
   return (
-    <div className="card overflow-hidden my-4">
+    <div className="card accounts-panel overflow-hidden my-4">
       <div className="card-head border-b border-[#F0EBE1] pb-4">
         <div>
           <h2 className="font-serif text-lg font-bold text-[#22261F]">
@@ -108,7 +112,7 @@ export function AccountsTable({ title, subtitle }: { title?: string; subtitle?: 
               <th className="py-3 px-4">Account Holder</th>
               <th className="py-3 px-4">Role & Dept</th>
               <th className="py-3 px-4">Login ID (Email)</th>
-              <th className="py-3 px-4">Auto-Generated Password</th>
+              <th className="py-3 px-4">Password</th>
               <th className="py-3 px-4">Status</th>
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
@@ -147,6 +151,8 @@ export function AccountsTable({ title, subtitle }: { title?: string; subtitle?: 
                         }
                         className="text-[#6B7160] hover:text-[#1F3A2E]"
                         title={isPassVisible ? 'Hide password' : 'Show password'}
+                        aria-label={`${isPassVisible ? 'Hide' : 'Show'} password for ${acc.name}`}
+                        aria-pressed={isPassVisible}
                       >
                         {isPassVisible ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
@@ -155,6 +161,7 @@ export function AccountsTable({ title, subtitle }: { title?: string; subtitle?: 
                         onClick={() => copyToClipboard(acc.password, 'Password')}
                         className="text-[#6B7160] hover:text-[#C9A227]"
                         title="Copy password"
+                        aria-label={`Copy password for ${acc.name}`}
                       >
                         <Copy size={13} />
                       </button>

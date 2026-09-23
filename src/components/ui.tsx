@@ -49,9 +49,9 @@ export function Badge({ children, className }: { children: React.ReactNode; clas
     <span
       className={cn(
         'badge',
-        text.match(/ready|completed|resolved|active|approved|paid|checked in/)
+        text.match(/^(ready|completed|resolved|active|approved|paid|checked in)$/)
           ? 'badge-green'
-          : text.match(/cancel|high|no-show|maintenance|declined/)
+          : text.match(/cancel|high|no-show|maintenance|declined|unpaid/)
             ? 'badge-red'
             : text.match(/pending|confirm|requested|inspection|progress|medium|dirty/)
               ? 'badge-amber'
@@ -508,7 +508,7 @@ export function DataTable<T extends { id: string }>({
           <thead>
             <tr>
               {columns.map((c) => (
-                <th key={c.key}>
+                <th key={c.key} scope="col" aria-sort={c.sort ? sort?.key === c.key ? sort.dir === 1 ? 'ascending' : 'descending' : 'none' : undefined}>
                   {c.sort ? (
                     <button
                       className="sort-button"

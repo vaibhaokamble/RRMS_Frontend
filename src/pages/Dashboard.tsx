@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   AlertCircle,
   HelpCircle,
-  UserPlus
+  UserPlus,
+  Gift,
+  CreditCard
 } from 'lucide-react';
 import {
   Area,
@@ -42,7 +44,6 @@ import {
   YAxis,
 } from 'recharts';
 import HeroSlider from '../components/HeroSlider';
-import RoomsCarousel from '../components/RoomsCarousel';
 import { AccountsTable } from '../components/AccountsTable';
 import {
   Avatar,
@@ -76,27 +77,25 @@ export function Stat({
   format?: (n: number) => string;
   color?: 'primary' | 'accent' | 'warning' | 'danger' | string;
 }) {
-  const isAccent = color === 'amber' || color === 'accent';
-  const chipBg = isAccent
-    ? 'rgba(201, 162, 39, 0.12)'
-    : color === 'rose' || color === 'danger'
-      ? 'rgba(193, 68, 58, 0.12)'
-      : 'rgba(31, 58, 46, 0.12)';
-  const iconColor = isAccent ? '#C9A227' : color === 'rose' || color === 'danger' ? '#C1443A' : '#1F3A2E';
+  const tone = ['amber', 'accent', 'warning'].includes(color)
+    ? 'amber'
+    : ['rose', 'danger'].includes(color)
+      ? 'rose'
+      : color;
 
   return (
-    <Card className="stat-card p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-[#6B7160] uppercase tracking-wider">{label}</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: chipBg, color: iconColor }}>
+    <Card className={`stat-card stat-${tone}`}>
+      <div className="stat-top">
+        <span>{label}</span>
+        <div className={`stat-icon ${tone}`}>
           <Icon size={19} />
         </div>
       </div>
-      <div className="text-3xl font-bold font-serif text-[#22261F]">
+      <div className="stat-value">
         <Counter value={value} format={format} />
       </div>
-      <div className="text-xs text-[#6B7160] mt-2 flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
+      <div className="stat-detail">
+        <span className="stat-detail-dot" />
         {detail}
       </div>
     </Card>
@@ -185,10 +184,10 @@ function OperationsDashboard() {
         }
       />
       
-      <HeroSlider />
+      <HeroSlider resortName={s.policies.resortName} location={s.policies.location} onExplore={() => go('rooms')} />
 
       {/* Core Executive & Operational Stats */}
-      <div className="stats-grid my-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="stats-grid">
         <Stat
           label="Room occupancy"
           value={d.occupancy}
@@ -219,7 +218,7 @@ function OperationsDashboard() {
             owner
               ? Math.round(
                   (s.reservations.filter((r) => r.status === 'Cancelled').length /
-                    s.reservations.length) *
+                    Math.max(1, s.reservations.length)) *
                     100,
                 )
               : d.arrivals
@@ -235,21 +234,11 @@ function OperationsDashboard() {
         />
       </div>
 
-      {/* Hierarchical Account Creation & Management Table (Owner & Manager) */}
-      <AccountsTable
-        title={owner ? 'Owner Portal — Manager Accounts Created' : 'Manager Portal — Staff Accounts Created'}
-        subtitle={
-          owner
-            ? 'Generate Manager credentials and manage system active statuses live'
-            : 'Generate Staff accounts for Receptionists, Housekeeping, Cashiers, Maintenance, Gardeners, F&B, & Spa'
-        }
-      />
-
-      <div className="dashboard-middle my-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="revenue-card md:col-span-2">
+      <div className="dashboard-middle">
+        <Card className="revenue-card">
           <CardHead
             title="Revenue overview"
-            subtitle="Daily revenue collection trend breakdown"
+            subtitle="A clear view of your daily net collections"
             action={
               <select
                 className="compact-select border border-[#F0EBE1] rounded-lg px-2 py-1 text-xs"
@@ -277,8 +266,8 @@ function OperationsDashboard() {
               <AreaChart data={chart} margin={{ top: 10, right: 15, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#C9A227" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#C9A227" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#44796A" stopOpacity={0.24} />
+                    <stop offset="100%" stopColor="#44796A" stopOpacity={0.01} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 5" vertical={false} stroke="#F0EBE1" />
@@ -315,10 +304,10 @@ function OperationsDashboard() {
 
         <Card className="room-overview">
           <CardHead
-            title="Room status breakdown"
-            subtitle="Real-time availability distribution"
+            title="Rooms at a glance"
+            subtitle="Current availability across your resort"
             action={
-              <Button variant="ghost" size="icon" onClick={() => go('rooms')}>
+              <Button variant="ghost" size="icon" aria-label="View room availability" onClick={() => go('rooms')}>
                 <ArrowUpRight size={18} />
               </Button>
             }
@@ -363,8 +352,8 @@ function OperationsDashboard() {
         </Card>
       </div>
 
-      <div className="dashboard-bottom grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
+      <div className="dashboard-bottom">
+        <Card>
           <CardHead
             title={owner ? 'Recent reservations' : 'Today’s arrivals'}
             subtitle={owner ? 'Latest guest bookings across the resort' : 'Welcoming today’s confirmed arrivals'}
@@ -429,7 +418,7 @@ function OperationsDashboard() {
           </div>
         </Card>
 
-        <Card className="attention-card p-4">
+        <Card className="attention-card">
           <CardHead title="Attention needed" subtitle="Action items requiring staff attention" />
           <div className="space-y-3 mt-3">
             <button
@@ -481,6 +470,10 @@ function OperationsDashboard() {
           </div>
         </Card>
       </div>
+      <AccountsTable
+        title={owner ? 'Management team' : 'Your resort team'}
+        subtitle={owner ? 'Manage manager accounts and workspace access.' : 'Staff accounts, roles, and access in one place.'}
+      />
     </PageMotion>
   );
 }
@@ -489,11 +482,33 @@ function BarIcon() {
   return <IndianRupee size={16} />;
 }
 
-/* Guest Portal Dashboard with Animated Booking Status Progress Timeline */
+/* Status Chip Component for Guest Dashboard */
+function StatusChip({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    'Checked in': 'bg-[#1F3A2E]/10 text-[#1F3A2E] border-[#1F3A2E]/25',
+    'In progress': 'bg-[#D98E04]/10 text-[#D98E04] border-[#D98E04]/25',
+    'Scheduled': 'bg-[#2E7D4F]/10 text-[#2E7D4F] border-[#2E7D4F]/25',
+    'Completed': 'bg-[#1F3A2E]/10 text-[#1F3A2E] border-[#1F3A2E]/25',
+    'Confirmed': 'bg-[#C9A227]/10 text-[#C9A227] border-[#C9A227]/25',
+    'Pending': 'bg-[#D98E04]/10 text-[#D98E04] border-[#D98E04]/25',
+  };
+  const style = styles[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${style}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {status}
+    </span>
+  );
+}
+
+/* Guest Portal Dashboard with Luxury Editorial UI & Interactive Steppers */
 function GuestDashboard() {
   const { s, actor, act } = useStore();
   const navigate = useNavigate();
   const [pulseGold, setPulseGold] = useState(false);
+  const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
+
   const g = s.guests.find((x) => x.id === actor!.guestId) ?? s.guests[0];
   const r =
     s.reservations.find((x) => x.guestId === g.id && x.status === 'Checked in') ??
@@ -502,15 +517,88 @@ function GuestDashboard() {
   const room = s.rooms.find((x) => x.id === r?.roomId);
   const balance = r ? folio(s, r).balance : 0;
 
-  // Booking Timeline Progress calculation
-  let progressPct = 33; // Confirmed
-  if (r?.status === 'Checked in') progressPct = 66; // Active Stay
-  if (r?.status === 'Completed') progressPct = 100; // Completed
+  // Booking Progress calculation
+  let progressStep = 2; // Default Active Stay
+  if (r?.status === 'Confirmed') progressStep = 1;
+  if (r?.status === 'Checked in') progressStep = 2;
+  if (r?.status === 'Completed') progressStep = 3;
 
   const triggerGoldPulse = () => {
     setPulseGold(true);
     setTimeout(() => setPulseGold(false), 1000);
   };
+
+  const handleQuickRequest = (title: string, type: string) => {
+    act(
+      {
+        type: 'complaint.create',
+        payload: {
+          guestId: g.id,
+          roomId: room?.id ?? 'room-1',
+          category: type,
+          subject: title,
+          description: `Guest requested ${title} from Guest Dashboard.`,
+        },
+      },
+      `Request logged: ${title}. Our concierge team is on it!`
+    );
+  };
+
+  const experiences = [
+    {
+      id: 'exp-1',
+      title: 'Ananda Spa & Wellness',
+      subtitle: 'Ayurvedic Healing Massage',
+      duration: '60 Mins',
+      price: '₹3,500',
+      rating: '4.9',
+      image: '/images/spa.jpg',
+      category: 'Spa',
+    },
+    {
+      id: 'exp-2',
+      title: 'Sunset Catamaran Cruise',
+      subtitle: 'Unlimited Drinks & Hors d’oeuvres',
+      duration: '2 Hours',
+      price: '₹5,000',
+      rating: '5.0',
+      image: '/images/cruise.jpg',
+      category: 'Excursion',
+    },
+    {
+      id: 'exp-3',
+      title: 'Candlelight Beachfront Dinner',
+      subtitle: '5-Course Chef’s Tasting Menu',
+      duration: 'Gourmet',
+      price: '₹8,500',
+      rating: '4.8',
+      image: '/images/dining.jpg',
+      category: 'Dining',
+    },
+    {
+      id: 'exp-4',
+      title: 'Deep Sea Scuba & Water Sports',
+      subtitle: 'PADI Instructor Guided Session',
+      duration: '3 Hours',
+      price: '₹4,200',
+      rating: '4.9',
+      image: '/images/scuba.jpg',
+      category: 'Adventure',
+    },
+  ];
+
+  const recentRequests = [
+    { id: 'req-1', service: 'Extra Feather Pillows & Linens', time: '10 mins ago', status: 'In progress', category: 'Housekeeping' },
+    { id: 'req-2', service: 'Continental Breakfast in Suite', time: 'Scheduled for 8:00 AM', status: 'Scheduled', category: 'Room Service' },
+    { id: 'req-3', service: 'Airport Buggy Transfer', time: 'Yesterday', status: 'Completed', category: 'Concierge' },
+  ];
+
+  const dailySchedule = [
+    { time: '08:30 AM', title: 'Sunrise Beachfront Yoga & Meditation', location: 'Beach Pavilion', icon: Sun },
+    { time: '01:00 PM', title: 'Gourmet Poolside Grill & Live DJ', location: 'The Lagoon Bar', icon: Utensils },
+    { time: '05:30 PM', title: 'Sunset Catamaran Champagne Cruise', location: 'Private Marina', icon: Waves },
+    { time: '08:00 PM', title: 'Live Jazz Night & Artisanal Cocktail Tasting', location: 'The Palm Lounge', icon: Coffee },
+  ];
 
   return (
     <PageMotion>
@@ -519,145 +607,414 @@ function GuestDashboard() {
         title={`Welcome home, ${g.name.split(' ')[0]}.`}
         description="Your stay, experiences, billing, and concierge at your fingertips."
         actions={
-          <Button variant="outline" onClick={() => navigate('/guest/support')}>
-            <MessageSquare size={16} />
-            Ask Concierge
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => navigate('/guest/reservations')}>
+              <CalendarDays size={16} />
+              My Bookings
+            </Button>
+            <Button onClick={() => navigate('/guest/support')}>
+              <MessageSquare size={16} />
+              Ask Concierge
+            </Button>
+          </>
         }
       />
 
-      <div className="resort-banner guest-banner fade-in p-8 rounded-2xl bg-[#1F3A2E] text-white relative overflow-hidden mb-6">
-        <div className="banner-content relative z-10 max-w-xl">
-          <div className="banner-kicker text-xs text-[#C9A227] tracking-widest font-semibold mb-2">
-            ● YOUR SANCTUARY AWAITS
+      {/* Hero Banner: Luxury Editorial Style */}
+      <div className="resort-banner guest-banner">
+        <div className="banner-content">
+          <div className="guest-banner-kicker">
+            <Sparkles size={13} />
+            <span>EXCEPTIONAL STAYS · BRIGHTER TOMORROWS</span>
           </div>
-          <h2 className="font-serif text-3xl font-bold mb-2">
+          <h2>
             Somewhere between a getaway and a feeling.
           </h2>
-          <p className="text-xs text-[#FAF7F2]/80 mb-4">
-            Welcome to {s.policies.resortName}. Request room dining, spa services, or concierge assistance.
+          <p>
+            Welcome to {s.policies.resortName}. Experience personalized concierge services, fine dining, restorative spa treatments, and unforgettable coastal moments.
           </p>
-          <Button onClick={() => navigate('/guest/services')}>
-            Explore Resort Experiences <ArrowUpRight size={17} />
-          </Button>
+          <div className="guest-banner-actions">
+            <Button onClick={() => navigate('/guest/services')}>
+              Explore your experiences <ArrowUpRight size={17} />
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/guest/support')}>
+              Chat with Concierge
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Booking Status Animated Timeline (Upcoming -> Active Stay -> Completed) */}
-      <Card className="p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+      {/* Booking Status Stepper with Status Chips */}
+      <Card className="p-6 mb-8 border border-[#F0EBE1] shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-[#F0EBE1]">
           <div>
-            <h3 className="font-serif font-bold text-lg text-[#22261F]">My Booking Status</h3>
-            <p className="text-xs text-[#6B7160]">Reservation {r.id} · {room?.type ?? 'Suite'}</p>
+            <div className="flex items-center gap-2">
+              <h3 className="font-serif font-bold text-xl text-[#22261F]">My Booking Status</h3>
+              <StatusChip status={r?.status ?? 'Checked in'} />
+            </div>
+            <p className="text-xs text-[#6B7160] mt-1">
+              Reservation ID: <strong className="font-mono text-[#22261F]">{r.id}</strong> · {room?.type ?? 'Suite'} (Room {room?.number ?? '101'})
+            </p>
           </div>
-          <Badge>{r.status}</Badge>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
+            View Reservation <ChevronRight size={15} />
+          </Button>
         </div>
 
-        {/* Animated Progress Line */}
-        <div className="relative my-6 px-4">
-          <div className="h-2 w-full bg-[#F0EBE1] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#C9A227] transition-all duration-700 ease-out rounded-full"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center text-xs mt-3">
-            <div className={`text-center ${progressPct >= 33 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
-              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 33 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>1</div>
+        {/* New 3-Step Progress Format (Card Grid) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+          {/* Step 1: Upcoming */}
+          <div className={`flex flex-col p-4 rounded-xl border transition-all ${progressStep >= 1 ? 'bg-[#FAF7F2] border-[#C9A227]/40 shadow-sm' : 'bg-white border-[#F0EBE1] opacity-60'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${progressStep >= 1 ? 'bg-[#C9A227] text-white shadow-md' : 'bg-[#F0EBE1] text-[#6B7160]'}`}>
+                1
+              </div>
+              <StatusChip status="Confirmed" />
+            </div>
+            <strong className={progressStep >= 1 ? 'text-[#1F3A2E] text-sm font-semibold' : 'text-[#6B7160] text-sm'}>
               Upcoming Stay
-              <span className="block text-[10px] text-[#6B7160]">{shortDate(r.checkIn)}</span>
-            </div>
+            </strong>
+            <span className="text-xs text-[#6B7160] mt-1">{shortDate(r.checkIn)}</span>
+          </div>
 
-            <div className={`text-center ${progressPct >= 66 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
-              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 66 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>2</div>
+          {/* Step 2: Active */}
+          <div className={`flex flex-col p-4 rounded-xl border transition-all ${progressStep >= 2 ? 'bg-[#FAF7F2] border-[#C9A227]/40 shadow-sm' : 'bg-white border-[#F0EBE1] opacity-60'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${progressStep >= 2 ? 'bg-[#C9A227] text-white shadow-md' : 'bg-[#F0EBE1] text-[#6B7160]'}`}>
+                2
+              </div>
+              <StatusChip status="Checked in" />
+            </div>
+            <strong className={progressStep >= 2 ? 'text-[#1F3A2E] text-sm font-semibold' : 'text-[#6B7160] text-sm'}>
               Active Stay
-              <span className="block text-[10px] text-[#6B7160]">Room {room?.number ?? '101'}</span>
-            </div>
+            </strong>
+            <span className="text-xs text-[#6B7160] mt-1">Room {room?.number ?? '101'}</span>
+          </div>
 
-            <div className={`text-center ${progressPct >= 100 ? 'font-bold text-[#1F3A2E]' : 'text-[#6B7160]'}`}>
-              <div className={`w-6 h-6 rounded-full mx-auto mb-1 flex items-center justify-center text-white text-[10px] ${progressPct >= 100 ? 'bg-[#C9A227]' : 'bg-[#6B7160]'}`}>3</div>
-              Completed Stay
-              <span className="block text-[10px] text-[#6B7160]">{shortDate(r.checkOut)}</span>
+          {/* Step 3: Completed */}
+          <div className={`flex flex-col p-4 rounded-xl border transition-all ${progressStep >= 3 ? 'bg-[#FAF7F2] border-[#C9A227]/40 shadow-sm' : 'bg-white border-[#F0EBE1] opacity-60'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${progressStep >= 3 ? 'bg-[#C9A227] text-white shadow-md' : 'bg-[#F0EBE1] text-[#6B7160]'}`}>
+                3
+              </div>
+              <StatusChip status="Scheduled" />
             </div>
+            <strong className={progressStep >= 3 ? 'text-[#1F3A2E] text-sm font-semibold' : 'text-[#6B7160] text-sm'}>
+              Completed Stay
+            </strong>
+            <span className="text-xs text-[#6B7160] mt-1">{shortDate(r.checkOut)}</span>
           </div>
         </div>
       </Card>
 
-      <div className="guest-overview grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="stay-card md:col-span-2 p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <img src="/images/suite.jpg" alt="Resort Suite" className="w-full md:w-5/12 h-44 object-cover rounded-xl" />
-            <div className="flex-1 space-y-2">
-              <span className="text-xs font-semibold text-[#C9A227]">YOUR RESERVED ROOM</span>
-              <h2 className="font-serif font-bold text-xl text-[#22261F]">{room?.type ?? 'Ocean Deluxe Suite'}</h2>
-              <p className="text-xs text-[#6B7160]">Room {room?.number} · {room?.floor}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#F0EBE1]">
-                <div>
-                  <small className="text-[#6B7160] block">CHECK-IN</small>
-                  <strong>{shortDate(r.checkIn)}</strong>
-                </div>
-                <div>
-                  <small className="text-[#6B7160] block">CHECK-OUT</small>
-                  <strong>{shortDate(r.checkOut)}</strong>
-                </div>
+      {/* Main Grid: Stay Overview, Rewards, Charges */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
+        {/* Current Stay Card */}
+        <Card className="lg:col-span-2 p-6 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#F0EBE1]">
+              <span className="text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5">
+                <BedDouble size={16} />
+                YOUR RESERVED SANCTUARY
+              </span>
+              <StatusChip status={r?.status ?? 'Checked in'} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+              <div className="md:col-span-5 h-48 rounded-xl overflow-hidden border border-[#F0EBE1] shadow-sm">
+                <img
+                  src="/images/suite.jpg"
+                  alt="Resort Suite"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80');
+                  }}
+                />
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
-                  Stay Details
-                </Button>
-                <Button size="sm" onClick={() => navigate('/guest/services')}>
-                  Request Add-on
-                </Button>
+
+              <div className="md:col-span-7 space-y-3">
+                <div>
+                  <h2 className="font-serif font-bold text-2xl text-[#22261F]">
+                    {room?.type ?? 'Ocean Deluxe Suite'}
+                  </h2>
+                  <p className="text-xs text-[#6B7160] mt-1">
+                    Room Number: <strong className="text-[#22261F]">{room?.number ?? '204'}</strong> · Floor: <strong className="text-[#22261F]">{room?.floor ?? '2nd Floor'}</strong> · View: <strong className="text-[#22261F]">Oceanfront Pavilion</strong>
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#F0EBE1]">
+                    <small className="text-[#6B7160] block font-semibold uppercase text-[10px]">CHECK-IN</small>
+                    <strong className="text-sm text-[#1F3A2E] block mt-0.5">{shortDate(r.checkIn)}</strong>
+                    <span className="block text-[10px] text-[#6B7160]">After 2:00 PM</span>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#F0EBE1]">
+                    <small className="text-[#6B7160] block font-semibold uppercase text-[10px]">CHECK-OUT</small>
+                    <strong className="text-sm text-[#1F3A2E] block mt-0.5">{shortDate(r.checkOut)}</strong>
+                    <span className="block text-[10px] text-[#6B7160]">Before 11:00 AM</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-4 mt-5 border-t border-[#F0EBE1]">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
+              Stay Details & Keycard
+            </Button>
+            <Button size="sm" onClick={() => handleQuickRequest('In-Room Dining Request', 'Room Service')}>
+              <Utensils size={15} /> Order Room Service
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => handleQuickRequest('Housekeeping Extra Towels', 'Housekeeping')}>
+              <Sparkles size={15} /> Extra Towels & Amenities
+            </Button>
+          </div>
         </Card>
 
-        {/* Loyalty Balance with Animated Counter */}
-        <div className="space-y-4">
-          <Card className={`p-4 ${pulseGold ? 'gold-pulse-effect border-[#C9A227]' : ''}`}>
-            <div className="flex items-center justify-between">
+        {/* Loyalty & Billing Cards Column */}
+        <div className="flex flex-col gap-6">
+          {/* Palm Rewards Card */}
+          <Card className={`p-6 flex-1 flex flex-col justify-between transition-all duration-300 ${pulseGold ? 'gold-pulse-effect border-[#C9A227]' : ''}`}>
+            <div className="flex items-start justify-between">
               <div>
-                <small className="text-xs font-semibold text-[#6B7160]">PALM REWARDS BALANCE</small>
-                <h2 className="text-2xl font-bold font-serif text-[#C9A227] mt-1">
-                  <Counter value={g.points} /> <span className="text-xs font-sans font-normal text-[#6B7160]">PTS</span>
-                </h2>
-                <p className="text-[11px] text-[#6B7160] mt-1">Gold Tier Member</p>
+                <span className="text-xs font-semibold text-[#6B7160] uppercase tracking-wider block">PALM REWARDS BALANCE</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <h2 className="text-3xl font-bold font-serif text-[#C9A227]">
+                    <Counter value={g.points || 1250} />
+                  </h2>
+                  <span className="text-xs font-bold text-[#6B7160]">PTS</span>
+                </div>
+                <div className="inline-flex items-center gap-1.5 bg-[#C9A227]/10 text-[#C9A227] px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-2 border border-[#C9A227]/20">
+                  <Sparkles size={12} /> Gold Tier VIP Member
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-full bg-[#C9A227]/10 text-[#C9A227] flex items-center justify-center font-bold">
-                <Sparkles size={20} />
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#C9A227]/20 to-[#C9A227]/5 text-[#C9A227] flex items-center justify-center font-bold border border-[#C9A227]/20 shadow-sm shrink-0">
+                <Gift size={24} />
               </div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              className="w-full mt-3 justify-center"
+              className="w-full mt-4 justify-center border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10"
               onClick={() => {
                 triggerGoldPulse();
                 navigate('/guest/loyalty');
               }}
             >
-              Redeem Points
+              Redeem Palm Points <ArrowRight size={14} />
             </Button>
           </Card>
 
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
+          {/* Charges & Payments Card */}
+          <Card className="p-6 flex-1 flex flex-col justify-between">
+            <div className="flex items-start justify-between">
               <div>
-                <small className="text-xs font-semibold text-[#6B7160]">FOLIO OUTSTANDING</small>
-                <h2 className="text-xl font-bold font-serif text-[#22261F] mt-1">{money(Math.max(0, balance))}</h2>
-                <p className="text-[11px] text-[#6B7160]">Room + Add-on charges</p>
+                <span className="text-xs font-semibold text-[#6B7160] uppercase tracking-wider block">FOLIO OUTSTANDING BALANCE</span>
+                <h2 className="text-2xl font-bold font-serif text-[#22261F] mt-1">{money(Math.max(0, balance))}</h2>
+                <p className="text-[11px] text-[#6B7160] mt-1">Room Rate + Add-on Experiences</p>
               </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/guest/billing')}>
-                View Bill
+              <div className="w-10 h-10 rounded-lg bg-[#1F3A2E]/10 text-[#1F3A2E] flex items-center justify-center shrink-0">
+                <CreditCard size={20} />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4 pt-3 border-t border-[#F0EBE1]">
+              <Button variant="outline" size="sm" className="flex-1 justify-center" onClick={() => navigate('/guest/billing')}>
+                View Folio Bill
+              </Button>
+              <Button size="sm" className="flex-1 justify-center" onClick={() => toast.success('Redirecting to secure payment portal...')}>
+                Pay Now
               </Button>
             </div>
           </Card>
         </div>
       </div>
+
+      {/* Grid Row 2: Today at the Resort & Recent Requests */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Today at the Resort Card */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F0EBE1]">
+            <div>
+              <h3 className="font-serif font-bold text-xl text-[#22261F] flex items-center gap-2">
+                <Sun size={20} className="text-[#C9A227]" />
+                Today at the Resort
+              </h3>
+              <p className="text-xs text-[#6B7160]">Curated daily schedule, activities, and dining events</p>
+            </div>
+            <Badge>4 Highlights Today</Badge>
+          </div>
+
+          <div className="space-y-3">
+            {dailySchedule.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] transition-all bg-[#FAF7F2]/50 hover:bg-[#FAF7F2] flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-lg bg-[#1F3A2E]/10 text-[#1F3A2E] flex items-center justify-center font-bold shrink-0">
+                      <Icon size={19} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold font-mono text-[#C9A227]">{item.time}</span>
+                        <span className="text-[11px] text-[#6B7160]">· {item.location}</span>
+                      </div>
+                      <strong className="block text-sm text-[#22261F] mt-0.5">{item.title}</strong>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toast.success(`Reserved entry for ${item.title}!`)}
+                  >
+                    Reserve <ChevronRight size={14} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Recent Service Requests Section */}
+        <Card className="p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F0EBE1]">
+              <div>
+                <h3 className="font-serif font-bold text-lg text-[#22261F]">Recent Requests</h3>
+                <p className="text-xs text-[#6B7160]">Track active service orders</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => navigate('/guest/support')}>
+                <Plus size={18} />
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {recentRequests.map((req) => (
+                <div key={req.id} className="p-3 rounded-xl border border-[#F0EBE1] bg-[#FAF7F2]/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#6B7160] uppercase">{req.category}</span>
+                    <StatusChip status={req.status} />
+                  </div>
+                  <strong className="block text-xs text-[#22261F]">{req.service}</strong>
+                  <span className="text-[11px] text-[#6B7160] block">{req.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full mt-4 justify-center"
+            onClick={() => navigate('/guest/support')}
+          >
+            View All Concierge Tickets <ArrowRight size={14} />
+          </Button>
+        </Card>
+      </div>
+
+      {/* Explore Experiences Section (Marketplace Cards) */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="font-serif font-bold text-2xl text-[#22261F]">Explore Resort Experiences</h2>
+            <p className="text-xs text-[#6B7160]">Handcrafted activities, wellness therapies, and gourmet dining</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate('/guest/services')}>
+            View Full Experiences Marketplace <ArrowUpRight size={16} />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {experiences.map((exp) => (
+            <Card key={exp.id} className="overflow-hidden group hover:shadow-md transition-all">
+              <div className="relative h-40 overflow-hidden bg-gray-100">
+                <img
+                  src={exp.image}
+                  alt={exp.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80');
+                  }}
+                />
+                <span className="absolute top-3 left-3 bg-[#1F3A2E]/90 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm">
+                  {exp.category}
+                </span>
+                <span className="absolute bottom-3 right-3 bg-white/90 text-[#22261F] text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
+                  <Star size={12} className="text-[#C9A227] fill-[#C9A227]" />
+                  {exp.rating}
+                </span>
+              </div>
+              <div className="p-4 space-y-2">
+                <h3 className="font-serif font-bold text-base text-[#22261F] group-hover:text-[#C9A227] transition-colors">
+                  {exp.title}
+                </h3>
+                <p className="text-xs text-[#6B7160] line-clamp-1">{exp.subtitle}</p>
+                <div className="flex items-center justify-between pt-2 border-t border-[#F0EBE1]">
+                  <div>
+                    <span className="text-[10px] text-[#6B7160] block uppercase">{exp.duration}</span>
+                    <strong className="text-sm text-[#1F3A2E] font-serif">{exp.price}</strong>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      act(
+                        {
+                          type: 'complaint.create',
+                          payload: {
+                            guestId: g.id,
+                            roomId: room?.id ?? 'room-1',
+                            category: exp.category,
+                            subject: `Booking Request: ${exp.title}`,
+                            description: `Guest requested booking for ${exp.title} (${exp.price}).`,
+                          },
+                        },
+                        `Experience booked: ${exp.title}! Our team will confirm timing shortly.`
+                      );
+                    }}
+                  >
+                    Book Now
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Help & Support / Concierge Quick Panel */}
+      <Card className="p-6 bg-gradient-to-r from-[#FAF7F2] via-white to-[#FAF7F2] border border-[#F0EBE1]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold text-[#C9A227] uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <HelpCircle size={15} />
+              24/7 GUEST CONCIERGE ASSISTANCE
+            </span>
+            <h3 className="font-serif font-bold text-xl text-[#22261F]">How can we elevate your stay today?</h3>
+            <p className="text-xs text-[#6B7160]">Select a one-touch request below or reach our front desk instantly.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" size="sm" onClick={() => handleQuickRequest('Housekeeping Cleaning Request', 'Housekeeping')}>
+              🧹 Clean My Room
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickRequest('In-Room Breakfast Order', 'Room Service')}>
+              🍽️ Room Service
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickRequest('Resort Buggy Pick-up', 'Concierge')}>
+              🛺 Resort Buggy
+            </Button>
+            <Button size="sm" onClick={() => navigate('/guest/support')}>
+              <MessageSquare size={15} /> Live Concierge Chat
+            </Button>
+          </div>
+        </div>
+      </Card>
     </PageMotion>
   );
 }
+
 
 /* Dedicated Role-Based Staff Dashboards (Strictly role-based via Login, no generic switcher) */
 function StaffRoleDashboard() {
