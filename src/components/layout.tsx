@@ -49,6 +49,7 @@ const general: Item[] = [
   { path: 'dashboard', label: 'Overview', icon: LayoutDashboard, section: 'WORKSPACE' },
   { path: 'reservations', label: 'Reservations', icon: CalendarDays, permission: 'reservations' },
   { path: 'rooms', label: 'Rooms & availability', icon: BedDouble, permission: 'rooms' },
+  { path: 'room-management', label: 'Room Management', icon: BedDouble, permission: 'rooms' },
   { path: 'guests', label: 'Guest directory', icon: Users, permission: 'guests' },
   {
     path: 'tasks',
@@ -96,6 +97,7 @@ const owner: Item[] = [
   { path: 'reports', label: 'Reports & insights', icon: BarChart3 },
   { path: 'billing', label: 'Financial overview', icon: CreditCard },
   { path: 'rooms', label: 'Rooms & pricing', icon: BedDouble },
+  { path: 'room-management', label: 'Room Management', icon: BedDouble },
   { path: 'accounts', label: 'Accounts & team', icon: Users, section: 'RESORT ADMINISTRATION' },
   { path: 'permissions', label: 'Roles & permissions', icon: ShieldCheck },
   { path: 'approvals', label: 'Approvals', icon: CheckCheck },
