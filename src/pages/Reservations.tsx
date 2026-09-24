@@ -51,6 +51,15 @@ import {
 } from '../components/ui';
 import type { FieldSpec } from '../components/ui';
 import { download, downloadCsv } from '../lib/utils';
+
+export const formatStatus = (s: string) => 
+  s === 'Completed' ? 'CHECKED_OUT' : 
+  s === 'Confirmed' ? 'CONFIRMED' : 
+  s === 'Checked in' ? 'CHECKED_IN' : 
+  s === 'Cancelled' ? 'CANCELLED' : 
+  s === 'No-show' ? 'NO_SHOW' : 
+  s.toUpperCase();
+
 export default function Reservations() {
   const { s, actor, act } = useStore();
   const navigate = useNavigate();
@@ -236,7 +245,7 @@ export default function Reservations() {
               key: 'status',
               label: 'Status',
               sort: (r) => r.status,
-              render: (r) => <Badge>{r.status}</Badge>,
+              render: (r) => <Badge>{formatStatus(r.status)}</Badge>,
             },
             {
               key: 'action',
@@ -303,17 +312,19 @@ export function ReservationWizard({ onClose }: { onClose: () => void }) {
     checkIn: today(),
     checkOut: dateOffset(3),
     roomId: '',
+    roomType: 'All',
     adults: 2,
     source: 'Walk-in',
     discount: 0,
     notes: '',
     offer: '',
+    document: '',
   });
   const change = (k: string, value: any) =>
     setV((prev) => ({
       ...prev,
       [k]: value,
-      ...(k === 'checkIn' || k === 'checkOut' ? { roomId: '' } : {}),
+      ...(k === 'checkIn' || k === 'checkOut' || k === 'roomType' ? { roomId: '' } : {}),
     }));
   const room = s.rooms.find((r) => r.id === v.roomId);
   const guest = s.guests.find((g) => g.id === v.guestId);
@@ -326,8 +337,9 @@ export function ReservationWizard({ onClose }: { onClose: () => void }) {
     'Review & confirm',
     'Guest credentials',
   ];
+  const uniqueRoomTypes = Array.from(new Set(s.rooms.map(r => r.type)));
   const free = s.rooms.filter(
-    (r) => available(s, r.id, v.checkIn, v.checkOut) && r.capacity >= v.adults,
+    (r) => available(s, r.id, v.checkIn, v.checkOut) && r.capacity >= v.adults && (v.roomType === 'All' || r.type === v.roomType),
   );
   const next = () => {
     if (
@@ -420,6 +432,12 @@ export function ReservationWizard({ onClose }: { onClose: () => void }) {
                       type: 'textarea',
                       wide: true,
                     },
+                    {
+                      name: 'document',
+                      label: 'Identity document details / ID number',
+                      wide: true,
+                      required: true,
+                    },
                   ]}
                   values={v}
                   onChange={change}
@@ -454,6 +472,13 @@ export function ReservationWizard({ onClose }: { onClose: () => void }) {
                     type: 'number',
                     min: 1,
                     max: 4,
+                    required: true,
+                  },
+                  {
+                    name: 'roomType',
+                    label: 'Room type filter',
+                    type: 'select',
+                    options: ['All', ...uniqueRoomTypes].map((x) => ({ value: x, label: x })),
                     required: true,
                   },
                   {
@@ -692,7 +717,7 @@ export function ReservationDetails() {
         description={`${room.type} · Room ${room.number} · ${nights(r.checkIn, r.checkOut)} nights`}
         actions={
           <>
-            <Badge>{r.status}</Badge>
+            <Badge>{formatStatus(r.status)}</Badge>
             {live(r) && (
               <Button variant="outline" onClick={() => setModal(guest ? 'request' : 'edit')}>
                 <Pencil size={16} />
@@ -773,12 +798,14 @@ export function ReservationDetails() {
                 <dt>Preferences</dt>
                 <dd>{g.preferences || 'None specified'}</dd>
               </div>
-              <div>
-                <dt>Identity document</dt>
-                <dd>{g.document || 'Not uploaded yet'}</dd>
-              </div>
+              {!guest && (
+                <div>
+                  <dt>Identity document</dt>
+                  <dd>{g.document || 'Not uploaded yet'}</dd>
+                </div>
+              )}
             </dl>
-            {r.notes && <div className="info-box">{r.notes}</div>}
+            {!guest && r.notes && <div className="info-box">{r.notes}</div>}
             <div className="flex gap-3 mt-5">
               {!guest && (
                 <Button variant="outline" onClick={() => setModal('credentials')}>
@@ -884,9 +911,24 @@ export function ReservationDetails() {
             { name: 'notes', label: 'Stay notes', type: 'textarea', wide: true },
           ]}
           onClose={() => setModal('')}
-          onSubmit={(v) =>
-            act({ type: 'reservation.edit', payload: { ...v, id: r.id } }, 'Stay updated')
-          }
+          onSubmit={(v) => {
+            const base = nights(v.checkIn, v.checkOut) * (s.rooms.find(x => x.id === v.roomId)?.rate || 0);
+            const max = (base * s.policies.maxDiscount) / 100;
+            if (v.discount > max && actor!.module !== 'Owner') {
+              return act(
+                {
+                  type: 'approval.create',
+                  payload: {
+                    type: 'Discount',
+                    details: `Discount of ₹${v.discount} requested for ${r.id} (exceeds limit).`,
+                    amount: v.discount,
+                  },
+                },
+                'Discount limit exceeded. Approval request sent to Owner.',
+              );
+            }
+            return act({ type: 'reservation.edit', payload: { ...v, id: r.id } }, 'Stay updated');
+          }}
         />
       )}
       {modal === 'request' && (
@@ -935,7 +977,27 @@ export function ReservationDetails() {
           }
           description={
             modal === 'checkout'
-              ? 'The folio must be settled and services completed. Check-out awards loyalty points and sends the room to housekeeping.'
+              ? (
+                <div className="space-y-4">
+                  <p>The folio must be settled and services completed. Check-out awards loyalty points and sends the room to housekeeping.</p>
+                  {(() => {
+                    const pending = s.services.filter((x) => x.reservationId === r.id && !['Completed', 'Cancelled'].includes(x.status));
+                    if (pending.length > 0) {
+                      return (
+                        <div className="bg-[#FAF7F2] border border-[#F0EBE1] rounded-lg p-3 text-sm">
+                          <strong className="text-[#C1443A] block mb-2">Pending Services to Complete/Cancel:</strong>
+                          <ul className="list-disc pl-5 space-y-1 text-[#6B7160]">
+                            {pending.map(p => (
+                              <li key={p.id}>{p.name} ({p.status})</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              )
               : 'The room will be released. Existing payments remain on the folio for an authorized refund.'
           }
           onClose={() => setModal('')}

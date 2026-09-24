@@ -17,6 +17,7 @@ import {
   Star,
   UserRound,
   Bell,
+  Coffee,
   Search,
   ChevronDown,
   ChevronRight,
@@ -67,18 +68,23 @@ const general: Item[] = [
     section: 'BUSINESS',
   },
   { path: 'promotions', label: 'Offers & packages', icon: Gift, permission: 'promotions' },
+  { path: 'approvals', label: 'Approvals', icon: CheckCheck, permission: 'approvals' },
   { path: 'reports', label: 'Reports & insights', icon: BarChart3, permission: 'reports' },
   { path: 'settings', label: 'Resort settings', icon: Settings2, permission: 'settings' },
 ];
 const guest: Item[] = [
-  { path: 'dashboard', label: 'My stay', icon: LayoutDashboard, section: 'YOUR RESORT EXPERIENCE' },
-  { path: 'reservations', label: 'My bookings', icon: CalendarDays },
-  { path: 'services', label: 'Services & experiences', icon: Sparkles, permission: 'services' },
-  { path: 'billing', label: 'Bills & payments', icon: CreditCard, permission: 'billing' },
-  { path: 'loyalty', label: 'Palm rewards', icon: Gift },
-  { path: 'reviews', label: 'Reviews & feedback', icon: Star },
-  { path: 'support', label: 'Help & requests', icon: MessageSquare, permission: 'support' },
-  { path: 'profile', label: 'My profile', icon: UserRound },
+  { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'YOUR STAY' },
+  { path: 'reservations', label: 'My Stay', icon: CalendarDays },
+  { path: 'my-room', label: 'My Room', icon: BedDouble },
+  { path: 'services', label: 'Resort Services', icon: Sparkles, section: 'EXPERIENCES' },
+  { path: 'dining', label: 'Food & Room Service', icon: Coffee },
+  { path: 'spa', label: 'Spa & Wellness', icon: Sparkles },
+  { path: 'my-requests', label: 'My Requests', icon: ClipboardList, section: 'SUPPORT' },
+  { path: 'billing', label: 'My Bill & Payments', icon: CreditCard },
+  { path: 'support', label: 'Support / Complaints', icon: MessageSquare },
+  { path: 'reviews', label: 'Feedback', icon: Star },
+  { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+  { path: 'profile', label: 'My Profile', icon: UserRound },
 ];
 const owner: Item[] = [
   {
@@ -92,9 +98,71 @@ const owner: Item[] = [
   { path: 'rooms', label: 'Rooms & pricing', icon: BedDouble },
   { path: 'accounts', label: 'Accounts & team', icon: Users, section: 'RESORT ADMINISTRATION' },
   { path: 'permissions', label: 'Roles & permissions', icon: ShieldCheck },
+  { path: 'approvals', label: 'Approvals', icon: CheckCheck },
   { path: 'audit', label: 'Audit & activity', icon: ScrollText },
   { path: 'settings', label: 'Resort & system settings', icon: Settings2 },
 ];
+
+export const staffNavs: Record<string, Item[]> = {
+  Receptionist: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'FRONT DESK' },
+    { path: 'front-desk', label: 'Front Desk', icon: UserRound },
+    { path: 'guests', label: 'Guests', icon: Users },
+    { path: 'rooms', label: 'Room Availability', icon: BedDouble },
+    { path: 'guest-requests', label: 'Guest Requests', icon: MessageSquare },
+    { path: 'billing', label: 'Payments', icon: CreditCard },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  Housekeeping: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'HOUSEKEEPING' },
+    { path: 'tasks', label: 'Cleaning Tasks', icon: ClipboardList },
+    { path: 'rooms', label: 'Room Status', icon: BedDouble },
+    { path: 'damage-reports', label: 'Damage Reports', icon: MessageSquare },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  Cashier: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'CASHIER' },
+    { path: 'billing', label: 'Guest Folios & Payments', icon: ScrollText },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  Maintenance: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'MAINTENANCE' },
+    { path: 'tasks', label: 'Maintenance Tasks', icon: ClipboardList },
+    { path: 'issue-reports', label: 'Reported Issues', icon: Settings2 },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  Gardener: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'GARDENER' },
+    { path: 'tasks', label: 'My Tasks', icon: ClipboardList },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  'F&B': [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'FOOD & BEVERAGE' },
+    { path: 'services', label: 'F&B Orders', icon: ClipboardList },
+    { path: 'guest-requests', label: 'Guest Requests', icon: MessageSquare },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ],
+  Spa: [
+    { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'SPA' },
+    { path: 'services', label: 'Spa Bookings', icon: Sparkles },
+    { path: 'billing', label: 'Billing Charges', icon: CreditCard },
+    { path: 'notifications', label: 'Notifications', icon: Bell, section: 'MY ACCOUNT' },
+    { path: 'team', label: 'My Shift', icon: BriefcaseBusiness },
+    { path: 'profile', label: 'My Profile', icon: UserRound },
+  ]
+};
 export const moduleIcons = {
   Guest: Palmtree,
   Management: BriefcaseBusiness,
@@ -167,7 +235,13 @@ export function Layout() {
   if (!actor) return <Navigate to="/login" replace />;
   const base = `/${actor.module.toLowerCase()}`;
   const nav = (
-    actor.module === 'Guest' ? guest : actor.module === 'Owner' ? owner : general
+    actor.module === 'Guest'
+      ? guest
+      : actor.module === 'Owner'
+        ? owner
+        : actor.module === 'Staff' && staffNavs[actor.role]
+          ? staffNavs[actor.role]
+          : general
   ).filter((i) => !i.permission || can(s, actor, i.permission));
   const current = nav.find((x) => location.pathname.startsWith(`${base}/${x.path}`));
   const notices = s.notifications.filter((n) =>

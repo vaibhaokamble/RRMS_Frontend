@@ -15,6 +15,7 @@ import {
   Pencil,
   Check,
   Crown,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useStore } from '../lib/store';
@@ -158,23 +159,57 @@ export function Guests() {
   );
 }
 export function Profile() {
-  const { s, actor } = useStore();
-  const g = s.guests.find((g) => g.id === actor!.guestId);
-  if (!g) return <Empty title="Profile unavailable" />;
+  const { s, actor, act } = useStore();
+  const isGuest = actor!.module === 'Guest';
+  const g = isGuest ? s.guests.find((g) => g.id === actor!.guestId) : null;
+  
+  if (isGuest && !g) return <Empty title="Profile unavailable" />;
+
   return (
     <PageMotion>
       <PageTitle
-        eyebrow="A STAY THAT FEELS LIKE YOU"
+        eyebrow={isGuest ? 'A STAY THAT FEELS LIKE YOU' : 'YOUR ACCOUNT DETAILS'}
         title="My profile"
-        description="Help us remember the little things that make you feel at home."
+        description={isGuest ? 'Help us remember the little things that make you feel at home.' : 'Manage your staff profile and login credentials.'}
       />
       <Card className="profile-card">
         <CardHead
           title="Your personal details"
-          subtitle="Prefilled by reception, always yours to update"
+          subtitle={isGuest ? 'Prefilled by reception, always yours to update' : 'Your staff record'}
         />
         <div className="card-padding">
-          <ProfileEditor guest={g} />
+          {isGuest ? (
+            <ProfileEditor guest={g!} />
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const name = formData.get('name') as string;
+                const email = formData.get('email') as string;
+                if (name && email) {
+                  act({ type: 'account.update', payload: { id: actor!.id, name, email } }, 'Profile updated');
+                }
+              }}
+            >
+              <div className="profile-header">
+                <Avatar name={actor!.name} size="large" />
+                <div>
+                  <h2>{actor!.name}</h2>
+                  <p>{actor!.role} · {actor!.module}</p>
+                </div>
+              </div>
+              <Fields
+                fields={[
+                  { name: 'name', label: 'Full name', required: true, type: 'text' },
+                  { name: 'email', label: 'Email address (Login ID)', required: true, type: 'email' },
+                ]}
+                values={{ name: actor!.name, email: actor!.email }}
+                onChange={() => {}}
+              />
+              <Button type="submit">Save changes</Button>
+            </form>
+          )}
         </div>
       </Card>
     </PageMotion>
@@ -303,7 +338,7 @@ export function Support() {
         <Tabs
           value={tab}
           onChange={setTab}
-          tabs={['All', 'Open', 'In progress', 'Resolved'].map((x) => ({ value: x, label: x }))}
+          tabs={['All', 'Open', 'Assigned', 'In progress', 'Resolved', 'Closed'].map((x) => ({ value: x, label: x }))}
         />
         <DataTable
           rows={list}
@@ -470,7 +505,7 @@ function SupportDetail({ id, onClose }: { id: string; onClose: () => void }) {
                 </Button>
               </div>
             )}
-            {c.status !== 'Resolved' && (
+            {c.status !== 'Resolved' && c.status !== 'Closed' && (
               <label className="field">
                 <span>Response to guest</span>
                 <textarea
@@ -486,35 +521,54 @@ function SupportDetail({ id, onClose }: { id: string; onClose: () => void }) {
       </div>
       <div className="dialog-footer">
         <Button variant="outline" onClick={onClose}>
-          Close
+          Cancel
         </Button>
-        {actor!.module !== 'Guest' && c.status !== 'Resolved' && (
+        {actor!.module !== 'Guest' && c.status !== 'Closed' && (
           <>
-            <Button
-              variant="outline"
-              onClick={() =>
-                act(
-                  { type: 'complaint.update', payload: { id, status: 'In progress', response } },
-                  'Guest updated',
-                )
-              }
-            >
-              Update progress
-            </Button>
-            <Button
-              onClick={() => {
-                if (
-                  act(
-                    { type: 'complaint.update', payload: { id, status: 'Resolved', response } },
-                    'Request resolved and guest notified',
+            {c.status !== 'Resolved' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    act(
+                      { type: 'complaint.update', payload: { id, status: 'In progress', response } },
+                      'Guest updated',
+                    )
+                  }
+                >
+                  Update progress
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (
+                      act(
+                        { type: 'complaint.update', payload: { id, status: 'Resolved', response } },
+                        'Request resolved and guest notified',
+                      )
+                    )
+                      onClose();
+                  }}
+                >
+                  Resolve request
+                  <Check size={15} />
+                </Button>
+              </>
+            )}
+            {c.status === 'Resolved' && (
+              <Button
+                onClick={() => {
+                  if (
+                    act(
+                      { type: 'complaint.update', payload: { id, status: 'Closed' } },
+                      'Request closed',
+                    )
                   )
-                )
-                  onClose();
-              }}
-            >
-              Resolve request
-              <Check size={15} />
-            </Button>
+                    onClose();
+                }}
+              >
+                Close Request
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -522,12 +576,84 @@ function SupportDetail({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 export function Team() {
-  const { s, act } = useStore();
+  const { s, actor, act } = useStore();
   const [role, setRole] = useState('All'),
     [selected, setSelected] = useState<Account | null>(null);
   const staff = s.accounts.filter(
     (a) => a.module === 'Staff' && (role === 'All' || a.role === role),
   );
+  
+  if (actor?.module === 'Staff') {
+    const tasksCompleted = s.tasks.filter((t) => t.assignee === actor.id && t.status === 'Completed').length;
+    const tasksTotal = s.tasks.filter((t) => t.assignee === actor.id).length;
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="YOUR SCHEDULE"
+          title="My Shift"
+          description={`You are currently assigned to the ${actor.shift || 'standard'} shift.`}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
+          <Card className="p-6">
+            <h3 className="font-serif text-lg mb-2">Shift Details</h3>
+            <div className="text-sm text-[#6B7160] mb-4">
+              Your active working hours and department assignment.
+            </div>
+            <div className="flex items-center gap-4 py-3 border-t border-[#F0EBE1]">
+              <CalendarDays size={20} className="text-[#506845]" />
+              <div>
+                <strong className="block text-[#22261F]">Schedule</strong>
+                <span className="text-xs">{actor.shift || '09:00 - 17:00'}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 py-3 border-t border-[#F0EBE1]">
+              <BriefcaseBusiness size={20} className="text-[#506845]" />
+              <div>
+                <strong className="block text-[#22261F]">Department</strong>
+                <span className="text-xs">{actor.role}</span>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6">
+            <h3 className="font-serif text-lg mb-2">Shift Performance</h3>
+            <div className="text-sm text-[#6B7160] mb-4">
+              Your task completion statistics for this shift.
+            </div>
+            <div className="flex items-center gap-4 py-3 border-t border-[#F0EBE1]">
+              <Check size={20} className="text-[#2E7D4F]" />
+              <div>
+                <strong className="block text-[#22261F]">Tasks Completed</strong>
+                <span className="text-xs">{tasksCompleted} of {tasksTotal} assigned</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+        
+        <Card>
+          <CardHead title="Your Assigned Tasks" subtitle="Active tasks for your current shift" />
+          <DataTable
+            rows={s.tasks.filter((t) => t.assignee === actor.id && t.status !== 'Completed')}
+            searchBy={(t) => t.title + (t.notes || '')}
+            columns={[
+              { key: 'title', label: 'Task', render: (t) => <strong>{t.title}</strong> },
+              { key: 'status', label: 'Status', render: (t) => <Badge>{t.status}</Badge> },
+              {
+                key: 'action',
+                label: '',
+                render: (t) => (
+                  <Button size="sm" variant="outline" onClick={() => act({ type: 'task.update', payload: { id: t.id, status: 'Completed' } }, 'Task completed')}>
+                    <Check size={14} />
+                    Mark Complete
+                  </Button>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      </PageMotion>
+    );
+  }
+
   return (
     <PageMotion>
       <PageTitle
@@ -878,6 +1004,49 @@ export function Reviews() {
           }
         />
       )}
+    </PageMotion>
+  );
+}
+export function Notifications() {
+  const { s, actor, act } = useStore();
+  const notices = s.notifications
+    .filter((n) => ['all', actor!.id, actor!.role, actor!.module, actor!.guestId].includes(n.audience))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  return (
+    <PageMotion>
+      <PageTitle
+        eyebrow="YOUR ALERTS"
+        title="Notifications"
+        description="Updates and messages from around the resort."
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => act({ type: 'notifications.read' }, 'All notifications marked as read')}
+          >
+            <Check size={16} />
+            Mark all as read
+          </Button>
+        }
+      />
+      <Card>
+        <div className="p-6 space-y-4">
+          {notices.length ? (
+            notices.map((n) => (
+              <div key={n.id} className="flex gap-4 p-4 border rounded-md border-[#F0EBE1]">
+                <div className="mt-1 text-[#506845]"><MessageSquare size={18} /></div>
+                <div>
+                  <h4 className="font-semibold text-[#22261F]">{n.title}</h4>
+                  <p className="text-[#6B7160] mt-1">{n.message}</p>
+                  <small className="text-[#9ea399] mt-2 block">{shortDate(n.date)}</small>
+                </div>
+              </div>
+            ))
+          ) : (
+            <Empty title="No notifications" description="You're all caught up." />
+          )}
+        </div>
+      </Card>
     </PageMotion>
   );
 }

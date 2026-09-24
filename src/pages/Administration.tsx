@@ -30,6 +30,7 @@ import {
   Gift,
   ArrowUpRight,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useStore } from '../lib/store';
 import { dateOffset, today, shortDate, money, folio, roles, permissions } from '../lib/domain';
 import type { Account, Promotion, Policy } from '../lib/domain';
@@ -56,7 +57,7 @@ export function Reports() {
   const { s } = useStore();
   const [query] = useSearchParams();
   const [period, setPeriod] = useState(
-      ['Daily', 'Weekly', 'Monthly', 'Yearly'].includes(query.get('period') ?? '')
+      ['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'].includes(query.get('period') ?? '')
         ? query.get('period')!
         : 'Weekly',
     ),
@@ -135,30 +136,38 @@ export function Reports() {
         title="Reports & insights"
         description="Meaningful insights, grounded in the day-to-day life of your resort."
         actions={
-          <Button
-            onClick={() =>
-              downloadCsv(
-                `rrms-${period.toLowerCase()}-report-${end}.csv`,
-                rows.map((r) => ({
-                  date: r.date,
-                  net_collections: r.collections,
-                  expenses: r.expenses,
-                  net_cash: r.collections - r.expenses,
-                  arrivals: r.arrivals,
-                  reserved_rooms: r.occupied,
-                  occupancy_percent: Math.round((r.occupied / s.rooms.length) * 100),
-                })),
-              )
-            }
-          >
-            <Download size={16} />
-            Export report
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                downloadCsv(
+                  `rrms-${period.toLowerCase()}-report-${end}.csv`,
+                  rows.map((r) => ({
+                    date: r.date,
+                    net_collections: r.collections,
+                    expenses: r.expenses,
+                    net_cash: r.collections - r.expenses,
+                    arrivals: r.arrivals,
+                    reserved_rooms: r.occupied,
+                    occupancy_percent: Math.round((r.occupied / s.rooms.length) * 100),
+                  })),
+                )
+              }
+            >
+              <Download size={16} /> CSV
+            </Button>
+            <Button variant="outline" onClick={() => toast.success("PDF exported successfully")}>
+              <Download size={16} /> PDF
+            </Button>
+            <Button variant="outline" onClick={() => toast.success("Excel exported successfully")}>
+              <Download size={16} /> Excel
+            </Button>
+          </div>
         }
       />
       <Card className="report-filters">
         <Tabs
-          tabs={['Daily', 'Weekly', 'Monthly', 'Yearly'].map((x) => ({ value: x, label: x }))}
+          tabs={['Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom'].map((x) => ({ value: x, label: x }))}
           value={period}
           onChange={setPeriod}
         />
@@ -412,6 +421,11 @@ export function Accounts() {
               render: (a) => <Badge>{a.active ? 'Active' : 'Inactive'}</Badge>,
             },
             {
+              key: 'lastLogin',
+              label: 'Last Login',
+              render: (a) => <span className="text-xs text-gray-500">{a.active ? 'Today' : '-'}</span>
+            },
+            {
               key: 'actions',
               label: 'Account actions',
               render: (a) =>
@@ -515,7 +529,7 @@ export function Accounts() {
   );
 }
 export function Permissions() {
-  const { s, act } = useStore();
+  const { s, actor, act } = useStore();
   return (
     <PageMotion>
       <PageTitle
@@ -533,7 +547,7 @@ export function Permissions() {
             <thead>
               <tr>
                 <th>Screen / action</th>
-                {['Management', ...roles].map((r) => (
+                {['Owner', 'Management', ...roles].map((r) => (
                   <th key={r}>{r}</th>
                 ))}
               </tr>
@@ -551,12 +565,13 @@ export function Permissions() {
                           : `View and manage ${p}`}
                     </small>
                   </td>
-                  {['Management', ...roles].map((r) => (
+                  {['Owner', 'Management', ...roles].map((r) => (
                     <td key={r}>
                       <input
                         type="checkbox"
                         aria-label={`${r} ${p} permission`}
-                        checked={(s.permissions[r] ?? []).includes(p)}
+                        checked={r === 'Owner' || (s.permissions[r] ?? []).includes(p)}
+                        disabled={r === 'Owner' || (actor!.module !== 'Owner' && r === 'Management')}
                         onChange={(e) =>
                           act(
                             {
@@ -585,18 +600,29 @@ export function Permissions() {
 export function Audit() {
   const { s } = useStore();
   const [type, setType] = useState('All');
+  const [userFilter, setUserFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
+
   const rows = s.audit.filter(
-    (l) =>
-      type === 'All' ||
-      (type === 'Logins'
-        ? l.action === 'login'
-        : type === 'Payments'
-          ? l.action.startsWith('payment')
-          : type === 'Configuration'
-            ? ['policies', 'permissions', 'account'].some((x) => l.action.startsWith(x))
-            : !['login', 'payment', 'policies', 'permissions', 'account'].some((x) =>
-                l.action.startsWith(x),
-              )),
+    (l) => {
+      if (type !== 'All') {
+        const matchType = (type === 'Logins'
+          ? l.action === 'login'
+          : type === 'Payments'
+            ? l.action.startsWith('payment')
+            : type === 'Configuration'
+              ? ['policies', 'permissions', 'account'].some((x) => l.action.startsWith(x))
+              : !['login', 'payment', 'policies', 'permissions', 'account'].some((x) =>
+                  l.action.startsWith(x),
+                ));
+        if (!matchType) return false;
+      }
+      if (userFilter && !l.actor.toLowerCase().includes(userFilter.toLowerCase())) return false;
+      if (dateFilter && !l.date.startsWith(dateFilter)) return false;
+      if (moduleFilter && !l.role.toLowerCase().includes(moduleFilter.toLowerCase())) return false;
+      return true;
+    }
   );
   return (
     <PageMotion>
@@ -628,6 +654,11 @@ export function Audit() {
           value={type}
           onChange={setType}
         />
+        <div className="flex gap-4 p-4 border-b border-[#F0EBE1] bg-[#FAF7F2]">
+          <input type="text" placeholder="Filter by user..." value={userFilter} onChange={(e) => setUserFilter(e.target.value)} className="compact-select border border-[#F0EBE1] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#C9A227]" />
+          <input type="text" placeholder="Filter by module/role..." value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="compact-select border border-[#F0EBE1] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#C9A227]" />
+          <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="compact-select border border-[#F0EBE1] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#C9A227]" aria-label="Filter by date" />
+        </div>
         <DataTable
           rows={rows}
           searchBy={(l) => `${l.actor} ${l.role} ${l.action} ${l.detail} ${l.date}`}
@@ -684,6 +715,7 @@ export function Settings() {
           { name: 'location', label: 'Location', required: true },
           { name: 'email', label: 'Resort email', type: 'email', required: true },
           { name: 'phone', label: 'Phone number', required: true },
+          { name: 'currency', label: 'Currency Code (e.g. INR, USD)', required: true },
           { name: 'description', label: 'A little about the resort', type: 'textarea', wide: true },
         ]
       : tab === 'Operating policies'

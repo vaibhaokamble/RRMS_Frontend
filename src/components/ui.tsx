@@ -74,8 +74,8 @@ export function Modal({
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
-  description?: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   wide?: boolean;
 }) {
@@ -415,8 +415,8 @@ export function Confirm({
   onConfirm,
   label = 'Confirm',
 }: {
-  title: string;
-  description: string;
+  title: React.ReactNode;
+  description: React.ReactNode;
   onClose: () => void;
   onConfirm: () => boolean;
   label?: string;

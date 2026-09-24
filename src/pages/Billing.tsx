@@ -107,14 +107,28 @@ export default function Billing() {
           </>
         }
       />
-      {!guest && (
+      {(owner || actor!.module === 'Management') && (
         <div className="stats-grid">
+          <Stat
+            label="Net Profit"
+            value={d.revenue - d.expenses}
+            format={money}
+            icon={IndianRupee}
+            detail="Net collections minus expenses"
+          />
           <Stat
             label="Net collections"
             value={d.revenue}
             format={money}
             icon={IndianRupee}
             detail="Payments less authorized refunds"
+          />
+          <Stat
+            label="GST / Taxes"
+            value={s.reservations.reduce((n, r) => n + folio(s, r).tax, 0)}
+            format={money}
+            icon={Receipt}
+            detail="Taxes collected across all folios"
           />
           <Stat
             label="Outstanding"
@@ -373,8 +387,8 @@ export default function Billing() {
       )}
       {modal === 'refund' && (
         <FormModal
-          title="Authorize a simulated refund"
-          description="Refunds are limited to the net amount received and are recorded in the audit log."
+          title={owner ? "Authorize a simulated refund" : "Request a simulated refund"}
+          description={owner ? "Refunds are limited to the net amount received and are recorded in the audit log." : "Refunds require Owner approval. A request will be sent."}
           initial={{ amount: Math.min(f.paid, Math.abs(f.balance)), method: 'Original method' }}
           fields={[
             {
@@ -387,20 +401,34 @@ export default function Billing() {
             },
             {
               name: 'note',
-              label: 'Authorization / reason',
+              label: owner ? 'Authorization / reason' : 'Reason for refund request',
               type: 'textarea',
               required: true,
               wide: true,
             },
           ]}
-          submit="Authorize refund"
+          submit={owner ? "Authorize refund" : "Request refund approval"}
           onClose={() => setModal('')}
-          onSubmit={(v) =>
-            act(
-              { type: 'payment.refund', payload: { ...v, reservationId: selected.id } },
-              'Authorized demo refund recorded',
-            )
-          }
+          onSubmit={(v) => {
+            if (owner) {
+              return act(
+                { type: 'payment.refund', payload: { ...v, reservationId: selected.id } },
+                'Authorized demo refund recorded',
+              );
+            } else {
+              return act(
+                {
+                  type: 'approval.create',
+                  payload: {
+                    type: 'Refund',
+                    details: `Refund of ₹${v.amount} requested for ${selected.id}. Reason: ${v.note}`,
+                    amount: v.amount,
+                  },
+                },
+                'Refund request sent to Owner for approval',
+              );
+            }
+          }}
         />
       )}
       {modal === 'expense' && (

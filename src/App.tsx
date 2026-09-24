@@ -3,7 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react';
 import { Component, lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Layout } from './components/layout';
+import { Layout, staffNavs } from './components/layout';
 import { Button, Empty, Skeleton } from './components/ui';
 import type { Permission } from './lib/domain';
 import { can } from './lib/domain';
@@ -21,9 +21,14 @@ const Services = lazy(() => import('./pages/Operations').then((m) => ({ default:
 const Guests = lazy(() => import('./pages/People').then((m) => ({ default: m.Guests })));
 const Profile = lazy(() => import('./pages/People').then((m) => ({ default: m.Profile })));
 const Team = lazy(() => import('./pages/People').then((m) => ({ default: m.Team })));
+const Notifications = lazy(() => import('./pages/People').then((m) => ({ default: m.Notifications })));
 const Support = lazy(() => import('./pages/People').then((m) => ({ default: m.Support })));
 const Loyalty = lazy(() => import('./pages/People').then((m) => ({ default: m.Loyalty })));
 const Reviews = lazy(() => import('./pages/People').then((m) => ({ default: m.Reviews })));
+const GuestRoom = lazy(() => import('./pages/GuestPortal').then((m) => ({ default: m.GuestRoom })));
+const GuestDining = lazy(() => import('./pages/GuestPortal').then((m) => ({ default: m.GuestDining })));
+const GuestSpa = lazy(() => import('./pages/GuestPortal').then((m) => ({ default: m.GuestSpa })));
+const GuestRequests = lazy(() => import('./pages/GuestPortal').then((m) => ({ default: m.GuestRequests })));
 const Reports = lazy(() => import('./pages/Administration').then((m) => ({ default: m.Reports })));
 const Accounts = lazy(() =>
   import('./pages/Administration').then((m) => ({ default: m.Accounts })),
@@ -38,17 +43,54 @@ const Settings = lazy(() =>
 const Promotions = lazy(() =>
   import('./pages/Administration').then((m) => ({ default: m.Promotions })),
 );
+const Approvals = lazy(() => import('./pages/Approvals'));
 const screens: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   reservations: Reservations,
+  'front-desk': Reservations,
   rooms: Rooms,
+  'assigned-rooms': Rooms,
   tasks: Tasks,
+  'cleaning-tasks': Tasks,
+  'assigned-requests': Tasks,
+  'open-issues': Tasks,
+  'equipment': Tasks,
+  'repair-history': Tasks,
+  'garden-areas': Tasks,
+  'maintenance-schedule': Tasks,
+  'completed-work': Tasks,
   services: Services,
+  'orders': Services,
+  'room-service': Services,
+  'pending-orders': Services,
+  'preparing': Services,
+  'ready-orders': Services,
+  'delivered-orders': Services,
+  'spa-appointments': Services,
+  'schedule': Services,
+  'guest-bookings': Services,
+  'spa-services': Services,
+  'in-progress': Services,
+  'completed-services': Services,
   billing: Billing,
+  'payments': Billing,
+  'pending-payments': Billing,
+  'invoices': Billing,
+  'refund-requests': Billing,
+  'transactions': Billing,
+  'my-room': GuestRoom,
+  'dining': GuestDining,
+  'spa': GuestSpa,
+  'my-requests': GuestRequests,
   guests: Guests,
   profile: Profile,
+  notifications: Notifications,
   team: Team,
   support: Support,
+  'guest-requests': Support,
+  'damage-reports': Support,
+  'issue-reports': Support,
+  'maintenance-requests': Tasks,
   loyalty: Loyalty,
   reviews: Reviews,
   reports: Reports,
@@ -57,17 +99,22 @@ const screens: Record<string, React.ComponentType> = {
   audit: Audit,
   settings: Settings,
   promotions: Promotions,
+  approvals: Approvals,
 };
 const access: Record<string, string[]> = {
   Guest: [
     'dashboard',
     'reservations',
+    'my-room',
     'services',
+    'dining',
+    'spa',
+    'my-requests',
     'billing',
-    'profile',
     'support',
-    'loyalty',
     'reviews',
+    'notifications',
+    'profile',
   ],
   Management: [
     'dashboard',
@@ -106,6 +153,7 @@ const access: Record<string, string[]> = {
     'permissions',
     'audit',
     'settings',
+    'approvals',
   ],
 };
 function DefaultRoute() {
@@ -125,11 +173,22 @@ function Screen() {
       />
     );
   const permission = page as Permission;
+  
+  // Protect all standard pages mapped to standard generic terms
   const protectedPage =
-    !['dashboard', 'profile', 'loyalty', 'reviews', 'accounts', 'permissions', 'audit'].includes(
+    !['dashboard', 'profile', 'loyalty', 'reviews', 'accounts', 'permissions', 'audit', 'notifications', 'my-room', 'dining', 'spa', 'my-requests'].includes(
       page,
     ) && !(page === 'reservations' && actor.module === 'Guest');
-  if (!access[actor.module].includes(page) || (protectedPage && !can(s, actor, permission)))
+
+  let hasAccess = false;
+  if (actor.module === 'Staff') {
+    const navs = staffNavs[actor.role] || [];
+    hasAccess = navs.some(n => n.path === page);
+  } else {
+    hasAccess = access[actor.module]?.includes(page) && (!protectedPage || can(s, actor, permission));
+  }
+
+  if (!hasAccess)
     return (
       <Empty
         title="This screen isn’t available to your role"

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   BedDouble,
+  BarChart3,
   CalendarDays,
   ChevronRight,
   ClipboardCheck,
@@ -58,7 +59,7 @@ import {
   Modal,
   FormModal
 } from '../components/ui';
-import { can, dashboard, dateOffset, folio, money, shortDate, today, roles } from '../lib/domain';
+import { can, dashboard, dateOffset, folio, money, shortDate, today, roles, getRoomStatus, serviceMenu, nights } from '../lib/domain';
 import { useStore } from '../lib/store';
 import { toast } from 'sonner';
 
@@ -111,9 +112,10 @@ export default function Dashboard() {
 
 function OperationsDashboard() {
   const reduced = useReducedMotion();
-  const { s, actor } = useStore();
+  const { s, actor, act } = useStore();
   const navigate = useNavigate();
   const [period, setPeriod] = useState('7');
+  const [guestFormOpen, setGuestFormOpen] = useState(false);
   const d = dashboard(s),
     owner = actor!.module === 'Owner',
     base = `/${actor!.module.toLowerCase()}`;
@@ -129,13 +131,15 @@ function OperationsDashboard() {
     };
   });
   const chartTotal = chart.reduce((n, p) => n + p.revenue, 0);
-  const colors = ['#1F3A2E', '#C9A227', '#D98E04', '#6B7160', '#C1443A'];
-  const roomData = ['Occupied', 'Ready', 'Dirty', 'Inspection', 'Maintenance'].map((status, i) => ({
-    name: status,
-    value: s.rooms.filter((r) => r.status === status).length,
-    color: colors[i],
-  }));
+  const allColors = ['#2E7D4F', '#C9A227', '#C1443A', '#8B4513', '#6B7160', '#44796A', '#D98E04', '#1F3A2E'];
+  const roomData = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'DIRTY', 'CLEANING', 'READY', 'MAINTENANCE', 'OUT_OF_SERVICE'].map((status, i) => ({
+    name: status.replace(/_/g, ' '),
+    value: s.rooms.filter((r) => getRoomStatus(s, r) === status).length,
+    color: allColors[i],
+  })).filter(x => x.value > 0);
   const arrivals = s.reservations.filter((r) => r.checkIn === today() && r.status === 'Confirmed');
+  const departures = s.reservations.filter((r) => r.checkOut === today() && r.status === 'Checked in').length;
+  const currentGuests = s.reservations.filter((r) => r.status === 'Checked in').reduce((n, r) => n + r.adults, 0);
   const dailyRevenue = s.payments
     .filter((p) => p.date.startsWith(today()))
     .reduce((n, p) => n + (p.type === 'Refund' ? -p.amount : p.amount), 0);
@@ -169,10 +173,20 @@ function OperationsDashboard() {
               <ChevronRight size={14} />
             </Button>
             {can(s, actor!, 'reservations') && !owner && (
-              <Button onClick={() => go('reservations?new=1')}>
-                <Plus size={17} />
-                New reservation
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setGuestFormOpen(true)}>
+                  <UserPlus size={16} />
+                  Walk-in
+                </Button>
+                <Button variant="outline" onClick={() => go('tasks')}>
+                  <ClipboardCheck size={16} />
+                  Tasks
+                </Button>
+                <Button onClick={() => go('reservations?new=1')}>
+                  <Plus size={17} />
+                  New reservation
+                </Button>
+              </>
             )}
             {owner && (
               <Button onClick={() => go('reports')}>
@@ -188,50 +202,21 @@ function OperationsDashboard() {
 
       {/* Core Executive & Operational Stats */}
       <div className="stats-grid">
-        <Stat
-          label="Room occupancy"
-          value={d.occupancy}
-          format={(n) => `${n}%`}
-          icon={BedDouble}
-          detail={`${d.occupied} of ${s.rooms.length} rooms occupied`}
-          color="primary"
-        />
-        <Stat
-          label={owner ? 'Total collected' : 'Available rooms'}
-          value={owner ? d.revenue : d.available}
-          format={owner ? money : undefined}
-          icon={owner ? IndianRupee : CalendarDays}
-          detail={owner ? 'Net payments after refunds' : 'Inspected and ready to welcome'}
-          color="amber"
-        />
-        <Stat
-          label={owner ? 'Operating expenses' : 'Today’s revenue'}
-          value={owner ? d.expenses : dailyRevenue}
-          format={money}
-          icon={IndianRupee}
-          detail={owner ? 'Recorded expenses across the resort' : 'Net collections recorded today'}
-          color="primary"
-        />
-        <Stat
-          label={owner ? 'Cancellation rate' : 'Today’s arrivals'}
-          value={
-            owner
-              ? Math.round(
-                  (s.reservations.filter((r) => r.status === 'Cancelled').length /
-                    Math.max(1, s.reservations.length)) *
-                    100,
-                )
-              : d.arrivals
-          }
-          format={owner ? (n) => `${n}%` : undefined}
-          icon={owner ? CalendarDays : Users}
-          detail={
-            owner
-              ? `${s.reservations.length} total reservations`
-              : `${d.departures} departures scheduled today`
-          }
-          color="rose"
-        />
+        {owner ? (
+          <>
+            <Stat label="Net Profit" value={d.netProfit} format={money} icon={IndianRupee} detail="Revenue after expenses" color="primary" />
+            <Stat label="ADR" value={d.adr} format={money} icon={BedDouble} detail="Average Daily Rate" color="amber" />
+            <Stat label="RevPAR" value={d.revpar} format={money} icon={BarChart3} detail="Revenue per available room" color="primary" />
+            <Stat label="Pending Payments" value={d.outstanding} format={money} icon={CreditCard} detail="Unsettled balances" color="rose" />
+          </>
+        ) : (
+          <>
+            <Stat label="Current guests" value={currentGuests} icon={Users} detail={`${d.occupancy}% room occupancy`} color="primary" />
+            <Stat label="Today’s arrivals" value={d.arrivals} icon={CalendarDays} detail={`${departures} departures scheduled today`} color="amber" />
+            <Stat label="Today’s revenue" value={dailyRevenue} format={money} icon={IndianRupee} detail="Net collections recorded today" color="primary" />
+            <Stat label="Pending Payments" value={d.outstanding} format={money} icon={CreditCard} detail="Unsettled balances across stays" color="rose" />
+          </>
+        )}
       </div>
 
       <div className="dashboard-middle">
@@ -419,25 +404,45 @@ function OperationsDashboard() {
         </Card>
 
         <Card className="attention-card">
-          <CardHead title="Attention needed" subtitle="Action items requiring staff attention" />
+          <CardHead title="Attention needed" subtitle={owner ? "Executive action items" : "Action items requiring staff attention"} />
           <div className="space-y-3 mt-3">
-            <button
-              onClick={() => go(owner ? 'reports' : 'tasks')}
-              className="w-full p-3 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] flex items-center justify-between text-left transition-all bg-[#FAF7F2]/60"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-[#D98E04]/10 text-[#D98E04] flex items-center justify-center">
-                  <ClipboardCheck size={18} />
+            {owner ? (
+              <button
+                onClick={() => go('approvals')}
+                className="w-full p-3 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] flex items-center justify-between text-left transition-all bg-[#FAF7F2]/60"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#C9A227]/10 text-[#C9A227] flex items-center justify-center">
+                    <CheckCircle2 size={18} />
+                  </div>
+                  <div>
+                    <strong className="block text-xs text-[#22261F]">Pending approvals</strong>
+                    <span className="text-[11px] text-[#6B7160]">Refunds, discounts & overrides</span>
+                  </div>
                 </div>
-                <div>
-                  <strong className="block text-xs text-[#22261F]">Open tasks</strong>
-                  <span className="text-[11px] text-[#6B7160]">Housekeeping & Maintenance</span>
+                <span className="font-bold text-xs bg-[#C9A227]/20 text-[#C9A227] px-2 py-0.5 rounded-full">
+                  {d.pendingApprovals}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => go('tasks')}
+                className="w-full p-3 rounded-xl border border-[#F0EBE1] hover:border-[#C9A227] flex items-center justify-between text-left transition-all bg-[#FAF7F2]/60"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#D98E04]/10 text-[#D98E04] flex items-center justify-center">
+                    <ClipboardCheck size={18} />
+                  </div>
+                  <div>
+                    <strong className="block text-xs text-[#22261F]">Open tasks</strong>
+                    <span className="text-[11px] text-[#6B7160]">Housekeeping & Maintenance</span>
+                  </div>
                 </div>
-              </div>
-              <span className="font-bold text-xs bg-[#D98E04]/20 text-[#D98E04] px-2 py-0.5 rounded-full">
-                {d.pending}
-              </span>
-            </button>
+                <span className="font-bold text-xs bg-[#D98E04]/20 text-[#D98E04] px-2 py-0.5 rounded-full">
+                  {d.pending}
+                </span>
+              </button>
+            )}
 
             <button
               onClick={() => go(owner ? 'reports' : 'support')}
@@ -474,6 +479,44 @@ function OperationsDashboard() {
         title={owner ? 'Management team' : 'Your resort team'}
         subtitle={owner ? 'Manage manager accounts and workspace access.' : 'Staff accounts, roles, and access in one place.'}
       />
+      {guestFormOpen && (
+        <FormModal
+          title="Register Walk-in Guest & Issue Credentials"
+          description="Create new reservation and auto-generate Guest Portal credentials for the guest."
+          initial={{ checkIn: today(), checkOut: dateOffset(2) }}
+          fields={[
+            { name: 'name', label: 'Guest Full Name', required: true, placeholder: 'e.g. Ramesh Verma' },
+            { name: 'email', label: 'Guest Email (Login ID)', type: 'email', required: true, placeholder: 'ramesh@example.com' },
+            { name: 'phone', label: 'Phone Number', required: true, placeholder: '+91 98765 00000' },
+            {
+              name: 'roomId',
+              label: 'Assign Room',
+              type: 'select',
+              required: true,
+              options: s.rooms.filter((r) => r.status === 'Ready').map((r) => ({ value: r.id, label: `Room ${r.number} (${r.type} - ₹${r.rate})` })),
+            },
+            { name: 'checkIn', label: 'Check-In Date', type: 'date', required: true },
+            { name: 'checkOut', label: 'Check-Out Date', type: 'date', required: true },
+          ]}
+          onClose={() => setGuestFormOpen(false)}
+          onSubmit={(values) => {
+            const res = act({
+              type: 'reservation.create',
+              payload: {
+                name: values.name,
+                email: values.email,
+                phone: values.phone,
+                roomId: values.roomId,
+                checkIn: values.checkIn || today(),
+                checkOut: values.checkOut || dateOffset(2),
+                adults: 2,
+              },
+            }, 'Walk-in reservation confirmed! Guest credentials generated.');
+            return res;
+          }}
+          submit="Confirm Walk-In & Generate Login"
+        />
+      )}
     </PageMotion>
   );
 }
@@ -587,17 +630,39 @@ function GuestDashboard() {
     },
   ];
 
-  const recentRequests = [
-    { id: 'req-1', service: 'Extra Feather Pillows & Linens', time: '10 mins ago', status: 'In progress', category: 'Housekeeping' },
-    { id: 'req-2', service: 'Continental Breakfast in Suite', time: 'Scheduled for 8:00 AM', status: 'Scheduled', category: 'Room Service' },
-    { id: 'req-3', service: 'Airport Buggy Transfer', time: 'Yesterday', status: 'Completed', category: 'Concierge' },
-  ];
+  const [isRequestFormOpen, setRequestFormOpen] = useState(false);
+
+  // Dynamic Requests
+  const myReservations = s.reservations.filter(x => x.guestId === g.id).map(x => x.id);
+  const activeServices = s.services.filter(x => myReservations.includes(x.reservationId) && x.status !== 'Completed');
+  const activeComplaints = s.complaints.filter(x => x.guestId === g.id && x.status !== 'Closed' && x.status !== 'Resolved');
+  
+  const recentRequests = [...activeServices.map(srv => ({
+    id: srv.id,
+    service: srv.name,
+    time: shortDate(srv.date) + ' ' + srv.time,
+    status: srv.status,
+    category: srv.category
+  })), ...activeComplaints.map(cmp => ({
+    id: cmp.id,
+    service: cmp.subject,
+    time: cmp.date || today(),
+    status: cmp.status,
+    category: 'Support'
+  }))].slice(0, 4);
+
+  const notifications = s.notifications.filter(n => n.audience === 'all' || n.audience === actor!.id || n.audience === g.id);
+  const unreadCount = notifications.filter(n => !n.readBy.includes(actor!.id)).length;
+
+  const f = r ? folio(s, r) : { total: 0, paid: 0, balance: 0, room: 0, extras: 0, tax: 0, discount: 0, services: [] };
+  const remainingNights = r ? nights(today(), r.checkOut) : 0;
+  
+  const isCheckedOut = r?.status === 'Completed';
 
   const dailySchedule = [
     { time: '08:30 AM', title: 'Sunrise Beachfront Yoga & Meditation', location: 'Beach Pavilion', icon: Sun },
-    { time: '01:00 PM', title: 'Gourmet Poolside Grill & Live DJ', location: 'The Lagoon Bar', icon: Utensils },
+    { time: '01:00 PM', title: 'Gourmet Poolside Grill & Live DJ', location: 'The Lagoon Bar', icon: Coffee },
     { time: '05:30 PM', title: 'Sunset Catamaran Champagne Cruise', location: 'Private Marina', icon: Waves },
-    { time: '08:00 PM', title: 'Live Jazz Night & Artisanal Cocktail Tasting', location: 'The Palm Lounge', icon: Coffee },
   ];
 
   return (
@@ -653,7 +718,7 @@ function GuestDashboard() {
               <StatusChip status={r?.status ?? 'Checked in'} />
             </div>
             <p className="text-xs text-[#6B7160] mt-1">
-              Reservation ID: <strong className="font-mono text-[#22261F]">{r.id}</strong> · {room?.type ?? 'Suite'} (Room {room?.number ?? '101'})
+              Guest ID: <strong className="font-mono text-[#22261F]">{g.id}</strong> · Reservation ID: <strong className="font-mono text-[#22261F]">{r?.id}</strong> · {room?.type ?? 'Suite'} (Room {room?.number ?? '101'})
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
@@ -759,15 +824,24 @@ function GuestDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-4 mt-5 border-t border-[#F0EBE1]">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r.id}`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/guest/reservations/${r?.id}`)}>
               Stay Details & Keycard
             </Button>
-            <Button size="sm" onClick={() => handleQuickRequest('In-Room Dining Request', 'Room Service')}>
-              <Utensils size={15} /> Order Room Service
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => handleQuickRequest('Housekeeping Extra Towels', 'Housekeeping')}>
-              <Sparkles size={15} /> Extra Towels & Amenities
-            </Button>
+            {!isCheckedOut && (
+              <>
+                <Button size="sm" onClick={() => navigate('/guest/dining')}>
+                  <Coffee size={15} /> Order Room Service
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/guest/my-room')}>
+                  <Sparkles size={15} /> Extra Towels & Amenities
+                </Button>
+              </>
+            )}
+            {isCheckedOut && (
+              <Button size="sm" onClick={() => navigate('/guest/reviews')}>
+                <Star size={15} className="mr-1" /> Leave Feedback
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -810,8 +884,8 @@ function GuestDashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <span className="text-xs font-semibold text-[#6B7160] uppercase tracking-wider block">FOLIO OUTSTANDING BALANCE</span>
-                <h2 className="text-2xl font-bold font-serif text-[#22261F] mt-1">{money(Math.max(0, balance))}</h2>
-                <p className="text-[11px] text-[#6B7160] mt-1">Room Rate + Add-on Experiences</p>
+                <h2 className="text-2xl font-bold font-serif text-[#22261F] mt-1">{money(Math.max(0, f.balance))}</h2>
+                <p className="text-[11px] text-[#6B7160] mt-1">Total: {money(f.total)} · Paid: <span className="text-[#2E7D4F]">{money(f.paid)}</span></p>
               </div>
               <div className="w-10 h-10 rounded-lg bg-[#1F3A2E]/10 text-[#1F3A2E] flex items-center justify-center shrink-0">
                 <CreditCard size={20} />
@@ -882,15 +956,21 @@ function GuestDashboard() {
           <div>
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#F0EBE1]">
               <div>
-                <h3 className="font-serif font-bold text-lg text-[#22261F]">Recent Requests</h3>
-                <p className="text-xs text-[#6B7160]">Track active service orders</p>
+                <h3 className="font-serif font-bold text-lg text-[#22261F]">Active Requests</h3>
+                <p className="text-xs text-[#6B7160]">Track your orders & services</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => navigate('/guest/support')}>
+              <Button variant="ghost" size="icon" onClick={() => setRequestFormOpen(true)}>
                 <Plus size={18} />
               </Button>
             </div>
 
             <div className="space-y-3">
+              {recentRequests.length === 0 && (
+                <div className="text-center py-6">
+                  <ClipboardCheck size={24} className="mx-auto text-[#6B7160] opacity-50 mb-2" />
+                  <p className="text-xs text-[#6B7160]">No active requests</p>
+                </div>
+              )}
               {recentRequests.map((req) => (
                 <div key={req.id} className="p-3 rounded-xl border border-[#F0EBE1] bg-[#FAF7F2]/40 space-y-2">
                   <div className="flex items-center justify-between">
@@ -907,12 +987,48 @@ function GuestDashboard() {
           <Button
             variant="outline"
             className="w-full mt-4 justify-center"
-            onClick={() => navigate('/guest/support')}
+            onClick={() => navigate('/guest/my-requests')}
           >
-            View All Concierge Tickets <ArrowRight size={14} />
+            View All Requests <ArrowRight size={14} />
           </Button>
         </Card>
       </div>
+      
+      {isRequestFormOpen && (
+        <FormModal
+          title="Quick Service Request"
+          fields={[
+            {
+              name: 'category',
+              label: 'Request Type',
+              type: 'select',
+              required: true,
+              options: [
+                { value: 'Housekeeping', label: 'Housekeeping' },
+                { value: 'Maintenance', label: 'Maintenance Issue' },
+                { value: 'Concierge', label: 'Concierge Service' },
+                { value: 'Other', label: 'Other Request' }
+              ]
+            },
+            { name: 'subject', label: 'What do you need?', required: true },
+            { name: 'description', label: 'Additional details', type: 'textarea' }
+          ]}
+          onClose={() => setRequestFormOpen(false)}
+          onSubmit={(v) => {
+            return act({
+              type: 'complaint.create',
+              payload: {
+                guestId: g.id,
+                roomId: room?.id ?? 'room-1',
+                category: v.category,
+                subject: v.subject,
+                description: v.description || 'No additional details provided.',
+              }
+            }, 'Your request has been sent to our team!');
+          }}
+          submit="Submit Request"
+        />
+      )}
 
       {/* Explore Experiences Section (Marketplace Cards) */}
       <div className="mb-8">
@@ -1016,6 +1132,30 @@ function GuestDashboard() {
 }
 
 
+function StaffCommonStats() {
+  const { s, actor } = useStore();
+  if (!actor) return null;
+  const role = actor.role as string;
+  const roleTasks = s.tasks.filter((t) => t.role === role || t.assignee === actor.id);
+  const pendingTasks = roleTasks.filter((t) => t.status === 'Pending').length;
+  const inProgressTasks = roleTasks.filter((t) => t.status === 'In progress').length;
+  const priorityTasks = roleTasks.filter((t) => t.priority === 'High' && t.status !== 'Completed').length;
+  
+  const notices = s.notifications.filter((n) =>
+    ['all', actor.id, actor.role, actor.module, actor.guestId].includes(n.audience),
+  );
+  const unread = notices.filter((n) => !n.readBy.includes(actor.id)).length;
+  
+  return (
+    <div className="stats-grid mb-6">
+      <Stat label="Current Shift" value={0} format={() => actor.shift || 'Morning'} icon={Clock3} detail={`${role} Department`} color="primary" />
+      <Stat label="Pending Tasks" value={pendingTasks} icon={ClipboardCheck} detail="Awaiting start" color="warning" />
+      <Stat label="In Progress" value={inProgressTasks} icon={CheckCircle2} detail="Currently working on" color="accent" />
+      <Stat label="Alerts & Priority" value={priorityTasks + unread} icon={AlertCircle} detail={`${unread} new notifications`} color="danger" />
+    </div>
+  );
+}
+
 /* Dedicated Role-Based Staff Dashboards (Strictly role-based via Login, no generic switcher) */
 function StaffRoleDashboard() {
   const { s, actor, act } = useStore();
@@ -1038,7 +1178,7 @@ function StaffRoleDashboard() {
             </Button>
           }
         />
-
+        <StaffCommonStats />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
           <Card className="p-5 md:col-span-2">
             <CardHead title="Today's Arrivals & Check-Ins" subtitle="Confirm guest arrival, assign room, and activate stay" />
@@ -1162,7 +1302,7 @@ function StaffRoleDashboard() {
             </Button>
           }
         />
-
+        <StaffCommonStats />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
           <Card className="p-5 md:col-span-2">
             <CardHead title="Assigned Turnover Cleaning Tasks" subtitle="Update status: Dirty → Cleaning → Inspection" />
@@ -1257,7 +1397,7 @@ function StaffRoleDashboard() {
           title={`Cashier Desk — Welcome, ${actor!.name.split(' ')[0]}`}
           description="View guest folios, accept payments via Card/UPI/Cash/Bank, issue refunds, and print formal invoices."
         />
-
+        <StaffCommonStats />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
           <Card className="p-5 md:col-span-2">
             <CardHead title="Guest Folios & Payment Processing" subtitle="Select a stay to collect payment or view charges" />
@@ -1342,12 +1482,13 @@ function StaffRoleDashboard() {
         title={`${role} Portal — Welcome, ${actor!.name.split(' ')[0]}`}
         description={`Manage ${role} work requests, update service status, and complete resort duties.`}
       />
+      <StaffCommonStats />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
         <Card className="p-5">
           <CardHead title={`Open ${role} Service Requests & Tasks`} subtitle="Manage active work orders" />
           <div className="space-y-3 mt-3">
             {s.services
-              .filter((x) => x.status !== 'Completed')
+              .filter((x) => x.status !== 'Completed' && serviceMenu.find((m) => m.name === x.name)?.role === role)
               .slice(0, 5)
               .map((srv) => (
                 <div key={srv.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">

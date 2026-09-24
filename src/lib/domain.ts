@@ -22,7 +22,8 @@ export type Permission =
   | 'settings'
   | 'team'
   | 'support'
-  | 'promotions';
+  | 'promotions'
+  | 'approvals';
 export const permissions: Permission[] = [
   'reservations',
   'rooms',
@@ -36,6 +37,7 @@ export const permissions: Permission[] = [
   'team',
   'support',
   'promotions',
+  'approvals',
 ];
 export type RoomStatus = 'Ready' | 'Occupied' | 'Dirty' | 'Inspection' | 'Maintenance';
 export type ReservationStatus = 'Confirmed' | 'Checked in' | 'Completed' | 'Cancelled' | 'No-show';
@@ -125,7 +127,7 @@ export interface Complaint {
   subject: string;
   description: string;
   category: string;
-  status: 'Open' | 'In progress' | 'Resolved';
+  status: 'Open' | 'Assigned' | 'In progress' | 'Resolved' | 'Closed';
   response: string;
   assignee: string;
   date: string;
@@ -137,6 +139,15 @@ export interface ChangeRequest {
   checkOut: string;
   reason: string;
   status: 'Pending' | 'Approved' | 'Declined';
+}
+export interface Approval {
+  id: string;
+  type: 'Refund' | 'Discount' | 'Expense' | 'Price override' | 'Account change';
+  requestedBy: string;
+  date: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  details: string;
+  amount?: number;
 }
 export interface Review {
   id: string;
@@ -186,6 +197,7 @@ export interface Policy {
   location: string;
   email: string;
   phone: string;
+  currency: string;
   description: string;
   tax: number;
   checkIn: string;
@@ -209,6 +221,7 @@ export interface State {
   payments: Payment[];
   complaints: Complaint[];
   changes: ChangeRequest[];
+  approvals: Approval[];
   reviews: Review[];
   notifications: Notification[];
   audit: Audit[];
@@ -227,12 +240,20 @@ export function dateOffset(n: number, base = new Date()) {
 }
 export const nights = (a: string, b: string) =>
   Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-export const money = (v: number) =>
-  new Intl.NumberFormat('en-IN', {
+export const money = (v: number, currency = 'INR') => {
+  try {
+    const raw = localStorage.getItem('rrms-palm-v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.policies?.currency) currency = parsed.policies.currency;
+    }
+  } catch {}
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'INR',
+    currency: currency,
     maximumFractionDigits: 0,
   }).format(v);
+};
 export const shortDate = (s: string) =>
   new Date(s.length === 10 ? s + 'T12:00:00' : s).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -247,6 +268,24 @@ export const initials = (s: string) =>
     .slice(0, 2)
     .map((x) => x[0])
     .join('');
+export const getRoomStatus = (s: State, r: Room) => {
+  if (r.status === 'Occupied') return 'OCCUPIED';
+  if (r.status === 'Maintenance') return 'OUT_OF_SERVICE';
+  if (r.status === 'Dirty' || r.status === 'Inspection') {
+    const isCleaning = s.tasks.some(
+      (t) => t.roomId === r.id && t.kind === 'Cleaning' && t.status !== 'Completed'
+    );
+    return isCleaning ? 'CLEANING' : 'DIRTY';
+  }
+  if (r.status === 'Ready') {
+    const hasBookingToday = s.reservations.some(
+      (res) => res.roomId === r.id && live(res) && res.checkIn === today()
+    );
+    return hasBookingToday ? 'RESERVED' : 'AVAILABLE';
+  }
+  return (r.status as string).toUpperCase();
+};
+
 export const live = (r: Reservation) => ['Confirmed', 'Checked in'].includes(r.status);
 export const serviceMenu = [
   {
@@ -332,8 +371,12 @@ export function dashboard(s: State) {
     departures: s.reservations.filter((r) => r.checkOut === today() && r.status === 'Checked in')
       .length,
     pending: s.tasks.filter((t) => t.status !== 'Completed').length,
+    pendingApprovals: (s.approvals || []).filter(a => a.status === 'Pending').length,
     complaints: s.complaints.filter((c) => c.status !== 'Resolved').length,
     expenses: s.expenses.reduce((n, e) => n + e.amount, 0),
+    netProfit: revenue - s.expenses.reduce((n, e) => n + e.amount, 0),
+    adr: occupied > 0 ? Math.round(revenue / occupied) : 0,
+    revpar: s.rooms.length > 0 ? Math.round(revenue / s.rooms.length) : 0,
     outstanding: s.reservations.reduce((n, r) => n + Math.max(0, folio(s, r).balance), 0),
   };
 }
@@ -593,6 +636,12 @@ export function seed(): State {
       },
     ],
     changes: [],
+    approvals: [
+      { id: 'APP-1', type: 'Refund', requestedBy: 'A1', date: dateOffset(-1), status: 'Pending', details: 'Guest requested refund for unused spa session.', amount: 2800 },
+      { id: 'APP-2', type: 'Discount', requestedBy: 'manager', date: today(), status: 'Pending', details: '10% discount for complaining guest in R25.', amount: 1500 },
+      { id: 'APP-3', type: 'Expense', requestedBy: 'A4', date: dateOffset(-2), status: 'Approved', details: 'Emergency AC repair parts.', amount: 4500 },
+      { id: 'APP-4', type: 'Price override', requestedBy: 'manager', date: today(), status: 'Pending', details: 'Override room rate for VIP guest.' }
+    ],
     reviews: [
       {
         id: 'V1',
@@ -683,6 +732,7 @@ export function seed(): State {
       location: 'Candolim, Goa · India',
       email: 'hello@thepalmresort.example',
       phone: '+91 832 555 0142',
+      currency: 'INR',
       description: 'A slower pace. A warmer welcome. Your coastal sanctuary in Goa.',
       tax: 12,
       checkIn: '14:00',
@@ -709,6 +759,7 @@ export function seed(): State {
         'team',
         'support',
         'promotions',
+        'approvals',
       ],
       Guest: ['services', 'billing', 'support'],
       Receptionist: ['reservations', 'rooms', 'guests', 'tasks', 'support'],
@@ -829,7 +880,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
           phone: clean(p.phone, 'Phone'),
           address: p.address ?? '',
           preferences: p.preferences ?? '',
-          document: '',
+          document: p.document ?? '',
           points: 0,
         };
         s.guests.push(guest);
@@ -1344,15 +1395,20 @@ export function applyCommand(previous: State, actorId: string, command: Command)
           'Choose an active staff member.',
         );
         c.assignee = p.assignee;
+        if (c.status === 'Open') c.status = 'Assigned';
       }
       if (p.status) {
         assert(
-          c.status !== 'Resolved' && ['In progress', 'Resolved'].includes(p.status),
+          c.status !== 'Closed' && ['Assigned', 'In progress', 'Resolved', 'Closed'].includes(p.status),
           'Invalid support status transition.',
         );
-        c.response = clean(p.response, 'Response to guest');
+        if (p.response) {
+          c.response = clean(p.response, 'Response to guest');
+        }
         c.status = p.status;
-        notify('Your support request was updated', c.response, c.guestId);
+        if (p.status !== 'Closed') {
+          notify('Your support request was updated', c.response || c.status, c.guestId);
+        }
       }
       break;
     }
@@ -1491,7 +1547,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       const allowed =
         a.module === 'Owner'
           ? Object.keys(s.policies)
-          : ['resortName', 'location', 'email', 'phone', 'description'];
+          : ['resortName', 'location', 'email', 'phone', 'currency', 'description'];
       Object.keys(p).forEach((k) => {
         assert(allowed.includes(k), 'Only the Owner can change operating policies.');
       });
@@ -1593,6 +1649,34 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         `${p.channel} simulation is disabled.`,
       );
       notify(`Demo ${p.channel} queued`, 'Simulation only. No external message was sent.', a.id);
+      break;
+    }
+    case 'approval.create': {
+      s.approvals = s.approvals || [];
+      s.approvals.unshift({
+        id: uid('APP'),
+        type: clean(p.type, 'Approval type') as any,
+        requestedBy: a.id,
+        date: today(),
+        status: 'Pending',
+        details: clean(p.details, 'Details'),
+        amount: p.amount ? Number(p.amount) : undefined,
+      });
+      notify('New approval request', `${p.type} request from ${a.name}`, 'Owner');
+      break;
+    }
+    case 'approval.approve': {
+      owner();
+      const approval = s.approvals.find((x) => x.id === p.id);
+      assert(approval && approval.status === 'Pending', 'Approval request is no longer pending.');
+      approval.status = 'Approved';
+      break;
+    }
+    case 'approval.reject': {
+      owner();
+      const approval = s.approvals.find((x) => x.id === p.id);
+      assert(approval && approval.status === 'Pending', 'Approval request is no longer pending.');
+      approval.status = 'Rejected';
       break;
     }
     default:

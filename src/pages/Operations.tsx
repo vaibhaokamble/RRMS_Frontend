@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   BedDouble,
   Plus,
@@ -51,6 +51,7 @@ import {
   DataTable,
 } from '../components/ui';
 import { downloadCsv } from '../lib/utils';
+import { Stat } from './Dashboard';
 const icons = {
   Spa: Leaf,
   Laundry: Shirt,
@@ -68,9 +69,27 @@ export function Rooms() {
   const [task, setTask] = useState(false);
   const navigate = useNavigate();
   const days = Array.from({ length: 7 }, (_, i) => dateOffset(i, new Date(start + 'T12:00:00')));
+  const getRoomStatus = (r: Room) => {
+    if (r.status === 'Occupied') return 'OCCUPIED';
+    if (r.status === 'Maintenance') return 'OUT_OF_SERVICE'; // or MAINTENANCE
+    if (r.status === 'Dirty' || r.status === 'Inspection') {
+      const isCleaning = s.tasks.some(
+        (t) => t.roomId === r.id && t.kind === 'Cleaning' && t.status !== 'Completed'
+      );
+      return isCleaning ? 'CLEANING' : 'DIRTY';
+    }
+    if (r.status === 'Ready') {
+      const hasBookingToday = s.reservations.some(
+        (res) => res.roomId === r.id && live(res) && res.checkIn === today()
+      );
+      return hasBookingToday ? 'RESERVED' : 'AVAILABLE';
+    }
+    return (r.status as string).toUpperCase();
+  };
+
   const rows = s.rooms.filter(
     (r) =>
-      (status === 'All' || r.status === status) &&
+      (status === 'All' || getRoomStatus(r) === status) &&
       `${r.number} ${r.type}`.toLowerCase().includes(query.toLowerCase()),
   );
   return (
@@ -95,12 +114,20 @@ export function Rooms() {
           </div>
         }
       />
+      {actor?.module === 'Owner' && (
+        <div className="stats-grid mb-6">
+          <Stat label="Total Rooms" value={s.rooms.length} icon={LayoutGrid} detail="Total rooms in resort" color="primary" />
+          <Stat label="Available" value={s.rooms.filter((r) => r.status === 'Ready').length} icon={Check} detail="Ready for check-in" color="amber" />
+          <Stat label="Occupied" value={s.rooms.filter((r) => r.status === 'Occupied').length} icon={BedDouble} detail="Currently occupied" color="rose" />
+          <Stat label="Maintenance" value={s.rooms.filter((r) => r.status === 'Maintenance').length} icon={Wrench} detail="Out of order" color="primary" />
+        </div>
+      )}
       <Card className="room-filters">
         <Tabs
-          tabs={['All', 'Ready', 'Occupied', 'Dirty', 'Inspection', 'Maintenance'].map((x) => ({
+          tabs={['All', 'AVAILABLE', 'RESERVED', 'OCCUPIED', 'DIRTY', 'CLEANING', 'READY', 'MAINTENANCE', 'OUT_OF_SERVICE'].map((x) => ({
             value: x,
-            label: x,
-            count: s.rooms.filter((r) => x === 'All' || r.status === x).length,
+            label: x === 'All' ? x : x.replace(/_/g, ' '),
+            count: s.rooms.filter((r) => x === 'All' || getRoomStatus(r) === x).length,
           }))}
           value={status}
           onChange={setStatus}
@@ -163,7 +190,7 @@ export function Rooms() {
                   {money(r.rate)}
                   <small> / night</small>
                 </strong>
-                <Badge>{r.status}</Badge>
+                <Badge>{getRoomStatus(r)}</Badge>
               </div>
             </button>
           ))}
@@ -253,16 +280,33 @@ export function Rooms() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (
-                    act(
-                      {
-                        type: 'room.update',
-                        payload: { id: selected.id, rate: selected.rate, type: selected.type },
-                      },
-                      'Room pricing updated for future reservations',
+                  if (actor!.module === 'Owner') {
+                    if (
+                      act(
+                        {
+                          type: 'room.update',
+                          payload: { id: selected.id, rate: selected.rate, type: selected.type },
+                        },
+                        'Room pricing updated for future reservations',
+                      )
                     )
-                  )
-                    setSelected(null);
+                      setSelected(null);
+                  } else {
+                    if (
+                      act(
+                        {
+                          type: 'approval.create',
+                          payload: {
+                            type: 'Price override',
+                            details: `Update Room ${selected.number} to ${selected.type} at ₹${selected.rate}/night`,
+                            amount: selected.rate,
+                          },
+                        },
+                        'Price change request sent to Owner for approval',
+                      )
+                    )
+                      setSelected(null);
+                  }
                 }}
               >
                 <Fields
@@ -280,7 +324,7 @@ export function Rooms() {
                   onChange={(k, v) => setSelected({ ...selected, [k]: v })}
                 />
                 <Button type="submit" className="mt-4">
-                  Save room details
+                  {actor!.module === 'Owner' ? 'Save room details' : 'Request price change approval'}
                 </Button>
               </form>
             )}
@@ -305,7 +349,11 @@ export function Rooms() {
 }
 export function Tasks() {
   const { s, actor, act } = useStore();
-  const [tab, setTab] = useState('All tasks'),
+  const location = window.location.pathname; // wait, let me just import useLocation if it's not imported or just use useLocation() if it is imported
+  // Ah, let me just use the imported useLocation from react-router-dom
+  const routerLocation = useLocation();
+  const isLostFound = routerLocation.pathname.includes('/lost-and-found') || routerLocation.pathname.includes('/damage-reports');
+  const [tab, setTab] = useState(isLostFound ? 'Lost & found' : 'All tasks'),
     [newTask, setNewTask] = useState(false),
     [edit, setEdit] = useState<Task | null>(null),
     [found, setFound] = useState(false),
@@ -334,6 +382,16 @@ export function Tasks() {
           ? 'Inspection'
           : 'Completed'
         : 'Completed';
+
+  const displayStatus = (status: string) => {
+    if (!own) return status;
+    const roleMap: Record<string, Record<string, string>> = {
+      Housekeeping: { 'Pending': 'ASSIGNED', 'In progress': 'CLEANING', 'Inspection': 'WAITING_FOR_INSPECTION', 'Completed': 'COMPLETED' },
+    };
+    const defaultMap: Record<string, string> = { 'Pending': 'ASSIGNED', 'In progress': 'IN_PROGRESS', 'Inspection': 'WAITING', 'Completed': 'COMPLETED' };
+    const map = roleMap[actor!.role] || defaultMap;
+    return (map as any)[status] || status.toUpperCase();
+  };
   return (
     <PageMotion>
       <PageTitle
@@ -358,18 +416,20 @@ export function Tasks() {
         }
       />
       <Card>
-        <Tabs
-          value={tab}
-          onChange={setTab}
-          tabs={[
-            'All tasks',
-            'Housekeeping',
-            'Maintenance',
-            'Property care',
-            'Inspections',
-            'Lost & found',
-          ].map((x) => ({ value: x, label: x }))}
-        />
+        {!own && (
+          <Tabs
+            value={tab}
+            onChange={setTab}
+            tabs={[
+              'All tasks',
+              'Housekeeping',
+              'Maintenance',
+              'Property care',
+              'Inspections',
+              'Lost & found',
+            ].map((x) => ({ value: x, label: x }))}
+          />
+        )}
         {tab !== 'Lost & found' && (
           <div className="table-toolbar">
             <label className="search-input">
@@ -439,7 +499,7 @@ export function Tasks() {
             <div className="task-column" key={status}>
               <h3>
                 <span className={`status-dot status-${status.toLowerCase().replace(' ', '-')}`} />
-                {status}
+                {displayStatus(status)}
                 <small>{shown.filter((t) => t.status === status).length}</small>
               </h3>
               {shown
@@ -488,11 +548,11 @@ export function Tasks() {
                         }
                       >
                         {t.status === 'Pending'
-                          ? 'Start work'
+                          ? (own ? 'Accept & Start' : 'Start work')
                           : t.status === 'Inspection'
                             ? 'Approve inspection'
                             : next(t) === 'Inspection'
-                              ? 'Request inspection'
+                              ? (own ? 'Complete & Request Inspection' : 'Request inspection')
                               : 'Complete task'}
                         <ArrowRight size={13} />
                       </Button>
@@ -671,9 +731,22 @@ export function Services() {
   const services = s.services.filter(
     (x) =>
       (!guest || myReservations.some((r) => r.id === x.reservationId)) &&
-      (!staff || x.assignee === actor!.id) &&
+      (!staff || x.assignee === actor!.id || serviceMenu.find((m) => m.name === x.name)?.role === actor!.role) &&
       (tab === 'All' || x.status === tab),
   );
+
+  const displayServiceStatus = (status: string) => {
+    if (!staff) return status;
+    if (actor!.role === 'F&B') {
+      const fbMap: Record<string, string> = { 'Requested': 'NEW', 'Accepted': 'PREPARING', 'In progress': 'OUT_FOR_DELIVERY', 'Completed': 'DELIVERED', 'Cancelled': 'CANCELLED' };
+      return fbMap[status] || status.toUpperCase();
+    }
+    if (actor!.role === 'Spa') {
+      const spaMap: Record<string, string> = { 'Requested': 'BOOKED', 'Accepted': 'CONFIRMED', 'In progress': 'IN_PROGRESS', 'Completed': 'COMPLETED', 'Cancelled': 'CANCELLED' };
+      return spaMap[status] || status.toUpperCase();
+    }
+    return status.toUpperCase();
+  };
   return (
     <PageMotion>
       <PageTitle
@@ -765,7 +838,7 @@ export function Services() {
         />
         <Tabs
           tabs={['All', 'Requested', 'Accepted', 'In progress', 'Completed', 'Cancelled'].map(
-            (x) => ({ value: x, label: x }),
+            (x) => ({ value: x, label: x === 'All' ? 'All' : displayServiceStatus(x) }),
           )}
           value={tab}
           onChange={setTab}
@@ -817,7 +890,7 @@ export function Services() {
               sort: (x) => x.amount,
               render: (x) => money(x.amount),
             },
-            { key: 'status', label: 'Status', render: (x) => <Badge>{x.status}</Badge> },
+            { key: 'status', label: 'Status', render: (x) => <Badge>{displayServiceStatus(x.status)}</Badge> },
             {
               key: 'action',
               label: '',
@@ -850,6 +923,21 @@ function ServiceDetail({ service: x, onClose }: { service: Service; onClose: () 
   const role = serviceMenu.find((m) => m.name === x.name)!.role;
   const next =
     x.status === 'Requested' ? 'Accepted' : x.status === 'Accepted' ? 'In progress' : 'Completed';
+
+  const staff = actor!.module === 'Staff';
+  const displayServiceStatus = (status: string) => {
+    if (!staff) return status;
+    if (actor!.role === 'F&B') {
+      const fbMap: Record<string, string> = { 'Requested': 'NEW', 'Accepted': 'PREPARING', 'In progress': 'OUT_FOR_DELIVERY', 'Completed': 'DELIVERED', 'Cancelled': 'CANCELLED' };
+      return fbMap[status] || status.toUpperCase();
+    }
+    if (actor!.role === 'Spa') {
+      const spaMap: Record<string, string> = { 'Requested': 'BOOKED', 'Accepted': 'CONFIRMED', 'In progress': 'IN_PROGRESS', 'Completed': 'COMPLETED', 'Cancelled': 'CANCELLED' };
+      return spaMap[status] || status.toUpperCase();
+    }
+    return status.toUpperCase();
+  };
+
   return (
     <Modal
       open
@@ -859,7 +947,7 @@ function ServiceDetail({ service: x, onClose }: { service: Service; onClose: () 
     >
       <div className="dialog-body">
         <div className="flex-between">
-          <Badge>{x.status}</Badge>
+          <Badge>{displayServiceStatus(x.status)}</Badge>
           <strong>{money(x.amount)}</strong>
         </div>
         <p className="service-detail-notes">{x.options || 'No additional instructions.'}</p>
@@ -928,10 +1016,10 @@ function ServiceDetail({ service: x, onClose }: { service: Service; onClose: () 
               }
             >
               {next === 'Accepted'
-                ? 'Accept request'
+                ? (staff ? (actor!.role === 'F&B' ? 'Accept & Prepare' : 'Confirm booking') : 'Accept request')
                 : next === 'In progress'
-                  ? 'Start service'
-                  : 'Complete & add charge'}
+                  ? (staff ? (actor!.role === 'F&B' ? 'Mark Ready for Delivery' : 'Mark In Progress') : 'Start service')
+                  : (staff ? (actor!.role === 'F&B' ? 'Mark Delivered' : 'Complete service') : 'Complete & add charge')}
               <Check size={15} />
             </Button>
           </>
