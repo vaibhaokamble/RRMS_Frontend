@@ -16,7 +16,6 @@ const ReservationDetails = lazy(() =>
 );
 const Billing = lazy(() => import('./pages/Billing'));
 const Rooms = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Rooms })));
-const RoomManagement = lazy(() => import('./pages/RoomManagement').then((m) => ({ default: m.RoomManagement })));
 const Tasks = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Tasks })));
 const Services = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Services })));
 const Guests = lazy(() => import('./pages/People').then((m) => ({ default: m.Guests })));
@@ -50,7 +49,7 @@ const screens: Record<string, React.ComponentType> = {
   reservations: Reservations,
   'front-desk': Reservations,
   rooms: Rooms,
-  'room-management': RoomManagement,
+  'room-management': Rooms,
   'assigned-rooms': Rooms,
   tasks: Tasks,
   'cleaning-tasks': Tasks,
