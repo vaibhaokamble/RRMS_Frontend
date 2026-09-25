@@ -1,3 +1,4 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import {
@@ -171,7 +172,7 @@ export default function Reservations() {
         <DataTable
           rows={rows}
           searchBy={(r) =>
-            `${r.id} ${s.guests.find((g) => g.id === r.guestId)?.name} ${s.rooms.find((x) => x.id === r.roomId)?.number}`
+            `${r.id} ${s.guests.find((g) => g.id === r.guestId)?.name} ${findRoom(s, r.roomId)?.number}`
           }
           placeholder="Search guest, reservation or room…"
           columns={[
@@ -199,7 +200,7 @@ export default function Reservations() {
               label: 'Room',
               sort: (r) => r.roomId,
               render: (r) => {
-                const room = s.rooms.find((x) => x.id === r.roomId)!;
+                const room = findRoom(s, r.roomId)!;
                 return (
                   <>
                     <strong>{room.number}</strong>
@@ -291,6 +292,7 @@ export default function Reservations() {
 }
 export function ReservationWizard({ onClose }: { onClose: () => void }) {
   const { s, act } = useStore();
+  const [params] = useSearchParams();
   const [step, setStep] = useState(0),
     [created, setCreated] = useState(false);
   const [v, setV] = useState<Record<string, any>>({
@@ -300,9 +302,9 @@ export function ReservationWizard({ onClose }: { onClose: () => void }) {
     phone: '',
     address: '',
     preferences: '',
-    checkIn: today(),
-    checkOut: dateOffset(3),
-    roomId: '',
+    checkIn: params.get('checkIn') || today(),
+    checkOut: params.get('checkOut') || dateOffset(3),
+    roomId: params.get('room') || '',
     adults: 2,
     source: 'Walk-in',
     discount: 0,
@@ -681,7 +683,7 @@ export function ReservationDetails() {
     );
   const guest = actor!.module === 'Guest';
   const g = s.guests.find((g) => g.id === r.guestId)!,
-    room = s.rooms.find((x) => x.id === r.roomId)!,
+    room = findRoom(s, r.roomId)!,
     f = folio(s, r);
   const base = `/${actor!.module.toLowerCase()}`;
   return (

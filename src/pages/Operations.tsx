@@ -1,3 +1,4 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -58,259 +59,24 @@ const icons = {
   Activities: Waves,
   Other: Car,
 };
-export function Rooms() {
-  const { s, actor, act } = useStore();
-  const [status, setStatus] = useState('All'),
-    [view, setView] = useState('grid'),
-    [query, setQuery] = useState(''),
-    [start, setStart] = useState(today()),
-    [selected, setSelected] = useState<Room | null>(null);
-  const [task, setTask] = useState(false);
-  const navigate = useNavigate();
-  const days = Array.from({ length: 7 }, (_, i) => dateOffset(i, new Date(start + 'T12:00:00')));
-  const rows = s.rooms.filter(
-    (r) =>
-      (status === 'All' || r.status === status) &&
-      `${r.number} ${r.type}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  return (
-    <PageMotion>
-      <PageTitle
-        eyebrow="ROOMS THAT FEEL LIKE A RETREAT"
-        title="Rooms & availability"
-        description="A clear view of every space, from garden escapes to ocean suites."
-        actions={
-          <div className="segmented">
-            <button className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}>
-              <LayoutGrid size={16} />
-              Rooms
-            </button>
-            <button
-              className={view === 'calendar' ? 'selected' : ''}
-              onClick={() => setView('calendar')}
-            >
-              <CalendarDays size={16} />
-              Calendar
-            </button>
-          </div>
-        }
-      />
-      <Card className="room-filters">
-        <Tabs
-          tabs={['All', 'Ready', 'Occupied', 'Dirty', 'Inspection', 'Maintenance'].map((x) => ({
-            value: x,
-            label: x,
-            count: s.rooms.filter((r) => x === 'All' || r.status === x).length,
-          }))}
-          value={status}
-          onChange={setStatus}
-        />
-        <div className="table-toolbar">
-          <label className="search-input">
-            <BedDouble size={17} />
-            <input
-              aria-label="Search rooms"
-              placeholder="Search room number or type…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          {view === 'calendar' && (
-            <div className="calendar-controls">
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Previous week"
-                onClick={() => setStart(dateOffset(-7, new Date(start + 'T12:00:00')))}
-              >
-                <ChevronLeft size={16} />
-              </Button>
-              <input
-                type="date"
-                aria-label="Calendar start date"
-                value={start}
-                onChange={(e) => setStart(e.target.value || today())}
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Next week"
-                onClick={() => setStart(dateOffset(7, new Date(start + 'T12:00:00')))}
-              >
-                <ChevronRight size={16} />
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
-      {view === 'grid' ? (
-        <div className="rooms-grid">
-          {rows.map((r) => (
-            <button className="room-card" key={r.id} onClick={() => setSelected(r)}>
-              <div className="flex-between">
-                <span className={`room-number room-${r.status.toLowerCase()}`}>
-                  <BedDouble size={23} />
-                  {r.number}
-                </span>
-                <ArrowUpRight size={17} />
-              </div>
-              <h3>{r.type}</h3>
-              <p>
-                {r.floor} · {r.capacity} guests
-              </p>
-              <div className="flex-between">
-                <strong>
-                  {money(r.rate)}
-                  <small> / night</small>
-                </strong>
-                <Badge>{r.status}</Badge>
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <div className="table-scroll">
-            <table className="availability-calendar">
-              <thead>
-                <tr>
-                  <th>Room</th>
-                  {days.map((d) => (
-                    <th key={d}>
-                      {new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short' })}
-                      <strong>{shortDate(d)}</strong>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <button onClick={() => setSelected(r)}>
-                        <strong>{r.number}</strong>
-                        <small>{r.type}</small>
-                      </button>
-                    </td>
-                    {days.map((d) => {
-                      const booking = s.reservations.find(
-                        (x) => x.roomId === r.id && live(x) && x.checkIn <= d && x.checkOut > d,
-                      );
-                      return (
-                        <td key={d}>
-                          <button
-                            className={`calendar-cell ${booking ? 'reserved' : r.status === 'Maintenance' ? 'blocked' : 'free'}`}
-                            onClick={() =>
-                              booking && actor!.module !== 'Owner'
-                                ? navigate(
-                                    `/${actor!.module.toLowerCase()}/reservations/${booking.id}`,
-                                  )
-                                : setSelected(r)
-                            }
-                          >
-                            {booking
-                              ? s.guests.find((g) => g.id === booking.guestId)?.name.split(' ')[0]
-                              : r.status === 'Maintenance'
-                                ? 'Out of service'
-                                : 'Available'}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="calendar-note">
-            Availability uses reservation dates. “Available” dates still require room readiness
-            before check-in.
-          </p>
-        </Card>
-      )}
-      {!rows.length && <Empty title="No matching rooms" />}
-      {selected && (
-        <Modal
-          open
-          onClose={() => {
-            setSelected(null);
-            setTask(false);
-          }}
-          title={`Room ${selected.number} · ${selected.type}`}
-          description={`${selected.floor} · Maximum ${selected.capacity} guests`}
-        >
-          <div className="dialog-body">
-            <div className="room-detail-photo" />
-            <div className="flex-between mb-5">
-              <Badge>{s.rooms.find((r) => r.id === selected.id)!.status}</Badge>
-              <strong>{money(selected.rate)} / night</strong>
-            </div>
-            <p className="muted">
-              Readiness is managed through cleaning and inspection. Maintenance blocks all new room
-              assignments.
-            </p>
-            {actor!.module !== 'Staff' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (
-                    act(
-                      {
-                        type: 'room.update',
-                        payload: { id: selected.id, rate: selected.rate, type: selected.type },
-                      },
-                      'Room pricing updated for future reservations',
-                    )
-                  )
-                    setSelected(null);
-                }}
-              >
-                <Fields
-                  fields={[
-                    {
-                      name: 'rate',
-                      label: 'Nightly rate (₹)',
-                      type: 'number',
-                      min: 1,
-                      required: true,
-                    },
-                    { name: 'type', label: 'Room type', required: true },
-                  ]}
-                  values={selected}
-                  onChange={(k, v) => setSelected({ ...selected, [k]: v })}
-                />
-                <Button type="submit" className="mt-4">
-                  Save room details
-                </Button>
-              </form>
-            )}
-            {can(s, actor!, 'tasks') && (
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => {
-                  setTask(true);
-                }}
-              >
-                <Wrench size={16} />
-                Create operational task
-              </Button>
-            )}
-          </div>
-        </Modal>
-      )}
-      {task && selected && <TaskForm roomId={selected.id} onClose={() => setTask(false)} />}
-    </PageMotion>
-  );
-}
 export function Tasks() {
   const { s, actor, act } = useStore();
+  const [taskParams, setTaskParams] = useSearchParams();
+  const statusFilter = taskParams.get('status') ?? 'All';
   const [tab, setTab] = useState('All tasks'),
-    [newTask, setNewTask] = useState(false),
+    [newTask, setNewTask] = useState(taskParams.has('new')),
     [edit, setEdit] = useState<Task | null>(null),
     [found, setFound] = useState(false),
     [damage, setDamage] = useState(false);
   const own = actor!.module === 'Staff';
+  const assigned = s.tasks.filter(t => !own || t.assignee === actor!.id);
+  const taskTabs = ['All tasks',
+    ...(!own || assigned.some(t => t.kind === 'Cleaning') ? ['Housekeeping'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Maintenance') ? ['Maintenance'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Property') ? ['Property care'] : []),
+    ...(!own || assigned.some(t => ['Cleaning', 'Maintenance'].includes(t.kind)) ? ['Inspections'] : []),
+    ...(!own || ['Receptionist', 'Housekeeping'].includes(actor!.role) ? ['Lost & found'] : []),
+  ];
   const tasks = s.tasks.filter(
     (t) =>
       (!own || t.assignee === actor!.id) &&
@@ -322,7 +88,7 @@ export function Tasks() {
   );
   const [search, setSearch] = useState('');
   const shown = tasks.filter((t) =>
-    `${t.title} ${s.rooms.find((r) => r.id === t.roomId)?.number}`
+    (statusFilter === 'All' || t.status === statusFilter) && `${t.title} ${findRoom(s, t.roomId)?.number} ${s.accounts.find(a => a.id === t.assignee)?.name}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
@@ -360,15 +126,8 @@ export function Tasks() {
       <Card>
         <Tabs
           value={tab}
-          onChange={setTab}
-          tabs={[
-            'All tasks',
-            'Housekeeping',
-            'Maintenance',
-            'Property care',
-            'Inspections',
-            'Lost & found',
-          ].map((x) => ({ value: x, label: x }))}
+          onChange={(value) => { setTab(value); setSearch(''); setTaskParams({}); }}
+          tabs={taskTabs.map((x) => ({ value: x, label: x }))}
         />
         {tab !== 'Lost & found' && (
           <div className="table-toolbar">
@@ -381,6 +140,8 @@ export function Tasks() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </label>
+            <select aria-label="Task status filter" value={statusFilter} onChange={e => setTaskParams(e.target.value === 'All' ? {} : { status: e.target.value })}><option value="All">All statuses</option>{['Pending', 'In progress', 'Inspection', 'Completed'].map(value => <option key={value}>{value}</option>)}</select>
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setTaskParams({}); setTab('All tasks'); }}>Reset filters</Button>
             <span className="muted">
               {tasks.filter((t) => t.status === 'Completed').length} of {tasks.length} completed
             </span>
@@ -407,7 +168,7 @@ export function Tasks() {
               {
                 key: 'room',
                 label: 'Found in',
-                render: (f) => `Room ${s.rooms.find((r) => r.id === f.roomId)?.number}`,
+                render: (f) => `Room ${findRoom(s, f.roomId)?.number}`,
               },
               { key: 'date', label: 'Date', render: (f) => shortDate(f.date) },
               { key: 'status', label: 'Status', render: (f) => <Badge>{f.status}</Badge> },
@@ -448,7 +209,7 @@ export function Tasks() {
                   <Card className="task-card" key={t.id}>
                     <div className="flex-between">
                       <span className="task-room">
-                        Room {s.rooms.find((r) => r.id === t.roomId)?.number}
+                        Room {findRoom(s, t.roomId)?.number}
                       </span>
                       <Badge>{t.priority}</Badge>
                     </div>
@@ -464,10 +225,10 @@ export function Tasks() {
                       {shortDate(t.deadline.slice(0, 10))}, {t.deadline.slice(11, 16)}
                     </div>
                     <div className="task-card-bottom">
-                      <Avatar
+                      <span><Avatar
                         name={s.accounts.find((a) => a.id === t.assignee)?.name ?? 'Unassigned'}
                         size="small"
-                      />
+                      />{s.accounts.find(a => a.id === t.assignee)?.name.split(' ')[0] ?? 'Unassigned'}</span>
                       <button onClick={() => setEdit(t)}>
                         Details
                         <ArrowUpRight size={13} />
@@ -503,13 +264,13 @@ export function Tasks() {
                   </Card>
                 ))}
               {!shown.some((t) => t.status === status) && (
-                <div className="board-empty">Nothing here for now</div>
+                <div className="board-empty">{status === 'Pending' ? 'No pending assignments' : status === 'In progress' ? 'No work in progress' : status === 'Inspection' ? 'No inspections waiting' : 'Completed work will appear here'}</div>
               )}
             </div>
           ))}
         </div>
       )}
-      {newTask && <TaskForm onClose={() => setNewTask(false)} />}
+      {newTask && <TaskForm onClose={() => { setNewTask(false); const next = new URLSearchParams(taskParams); next.delete('new'); setTaskParams(next); }} />}
       {edit && (
         <FormModal
           title="Task details"
@@ -795,7 +556,7 @@ export function Services() {
                 return (
                   <>
                     {s.guests.find((g) => g.id === r.guestId)?.name}
-                    <small>Room {s.rooms.find((room) => room.id === r.roomId)?.number}</small>
+                    <small>Room {findRoom(s, r.roomId)?.number}</small>
                   </>
                 );
               },
@@ -1030,7 +791,7 @@ export function ServiceWizard({
                       wide: true,
                       options: stays.map((r) => ({
                         value: r.id,
-                        label: `${s.guests.find((g) => g.id === r.guestId)?.name} · ${r.id} · Room ${s.rooms.find((x) => x.id === r.roomId)?.number}`,
+                        label: `${s.guests.find((g) => g.id === r.guestId)?.name} · ${r.id} · Room ${findRoom(s, r.roomId)?.number}`,
                       })),
                     },
                     {
@@ -1130,3 +891,4 @@ export function ServiceWizard({
     </Modal>
   );
 }
+

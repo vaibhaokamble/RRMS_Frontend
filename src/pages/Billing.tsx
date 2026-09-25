@@ -1,3 +1,4 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -30,7 +31,7 @@ import { download, downloadCsv } from '../lib/utils';
 export function invoice(s: State, r: Reservation) {
   const f = folio(s, r),
     g = s.guests.find((g) => g.id === r.guestId)!,
-    room = s.rooms.find((x) => x.id === r.roomId)!;
+    room = findRoom(s, r.roomId)!;
   const esc = (x: unknown) =>
     String(x)
       .replaceAll('&', '&amp;')
@@ -69,7 +70,7 @@ export default function Billing() {
     return <Empty title="No folios yet" description="A confirmed stay creates a guest folio." />;
   const f = folio(s, selected),
     g = s.guests.find((x) => x.id === selected.guestId)!,
-    room = s.rooms.find((x) => x.id === selected.roomId)!;
+    room = findRoom(s, selected.roomId)!;
   const payments = s.payments.filter((p) => p.reservationId === selected.id);
   return (
     <PageMotion>

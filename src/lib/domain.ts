@@ -1,3 +1,5 @@
+import { applyPropertyCommand, initialAmenities, roomStatus } from './property';
+import type { Amenity, AmenityUsage } from './property';
 export type Module = 'Guest' | 'Management' | 'Staff' | 'Owner';
 export const roles = [
   'Receptionist',
@@ -13,6 +15,7 @@ export type Role = Module | StaffRole;
 export type Permission =
   | 'reservations'
   | 'rooms'
+  | 'amenities'
   | 'guests'
   | 'tasks'
   | 'services'
@@ -26,6 +29,7 @@ export type Permission =
 export const permissions: Permission[] = [
   'reservations',
   'rooms',
+  'amenities',
   'guests',
   'tasks',
   'services',
@@ -37,7 +41,7 @@ export const permissions: Permission[] = [
   'support',
   'promotions',
 ];
-export type RoomStatus = 'Ready' | 'Occupied' | 'Dirty' | 'Inspection' | 'Maintenance';
+export type RoomStatus = 'Ready' | 'Occupied' | 'Dirty' | 'Inspection' | 'Maintenance' | 'Out of Service';
 export type ReservationStatus = 'Confirmed' | 'Checked in' | 'Completed' | 'Cancelled' | 'No-show';
 export interface Room {
   id: string;
@@ -47,6 +51,13 @@ export interface Room {
   rate: number;
   capacity: number;
   status: RoomStatus;
+  name?: string;
+  bedType?: string;
+  beds?: number;
+  description?: string;
+  images?: string[];
+  amenityIds?: string[];
+  active?: boolean;
 }
 export interface Guest {
   id: string;
@@ -201,6 +212,12 @@ export interface Policy {
 export interface State {
   version: number;
   rooms: Room[];
+  roomTypes?: string[];
+  archivedRooms?: Room[];
+  amenities: Amenity[];
+  amenityCategories?: string[];
+  amenityUsage: AmenityUsage[];
+  ownerPropertyAdmin: boolean;
   guests: Guest[];
   reservations: Reservation[];
   accounts: Account[];
@@ -219,6 +236,9 @@ export interface State {
   policies: Policy;
   permissions: Record<string, Permission[]>;
 }
+// Historical references remain readable after a room leaves the active inventory.
+export const findRoom = (s: State, id: string | undefined) =>
+  s.rooms.find(r => r.id === id) ?? s.archivedRooms?.find(r => r.id === id);
 export const today = () => dateOffset(0);
 export function dateOffset(n: number, base = new Date()) {
   const d = new Date(base);
@@ -297,7 +317,13 @@ export function folio(s: State, r: Reservation) {
   const room = ['Cancelled', 'No-show'].includes(r.status)
     ? 0
     : nights(r.checkIn, r.checkOut) * r.rate;
-  const services = s.services.filter((x) => x.reservationId === r.id && x.status === 'Completed');
+  const services: Service[] = [
+    ...s.services.filter((x) => x.reservationId === r.id && x.status === 'Completed'),
+    ...(s.amenityUsage ?? []).filter((x) => x.reservationId === r.id).map((x) => ({
+      id: x.id, reservationId: r.id, name: x.name, category: 'Amenities', amount: x.amount,
+      date: x.date.slice(0, 10), time: x.date.slice(11, 16), options: 'Amenity visit', status: 'Completed' as const, assignee: '',
+    })),
+  ];
   const extras = services.reduce((n, x) => n + x.amount, 0);
   const discount = Math.min(room, r.discount);
   const subtotal = room - discount + extras;
@@ -312,7 +338,8 @@ export function available(s: State, roomId: string, start: string, end: string, 
   const room = s.rooms.find((x) => x.id === roomId);
   return (
     !!room &&
-    room.status !== 'Maintenance' &&
+    room.active !== false &&
+    !['Maintenance', 'Out of Service', 'Dirty', 'Inspection'].includes(room.status) &&
     !s.reservations.some(
       (r) =>
         r.id !== exclude && r.roomId === roomId && live(r) && r.checkIn < end && r.checkOut > start,
@@ -324,9 +351,9 @@ export function dashboard(s: State) {
   const revenue = s.payments.reduce((n, p) => n + (p.type === 'Refund' ? -p.amount : p.amount), 0);
   return {
     occupied,
-    occupancy: Math.round((occupied / s.rooms.length) * 100),
+    occupancy: Math.round((occupied / Math.max(1, s.rooms.filter(r => r.active !== false).length)) * 100),
     revenue,
-    available: s.rooms.filter((r) => r.status === 'Ready').length,
+    available: s.rooms.filter((r) => roomStatus(s, r) === 'Available').length,
     arrivals: s.reservations.filter((r) => r.checkIn === today() && r.status === 'Confirmed')
       .length,
     departures: s.reservations.filter((r) => r.checkOut === today() && r.status === 'Checked in')
@@ -551,6 +578,9 @@ export function seed(): State {
   const state: State = {
     version: 1,
     rooms,
+    amenities: initialAmenities(),
+    amenityUsage: [],
+    ownerPropertyAdmin: true,
     guests,
     reservations,
     accounts,
@@ -697,6 +727,7 @@ export function seed(): State {
     },
     permissions: {
       Management: [
+        'amenities',
         'reservations',
         'rooms',
         'guests',
@@ -710,7 +741,7 @@ export function seed(): State {
         'support',
         'promotions',
       ],
-      Guest: ['services', 'billing', 'support'],
+      Guest: ['services', 'billing', 'support', 'amenities'],
       Receptionist: ['reservations', 'rooms', 'guests', 'tasks', 'support'],
       Housekeeping: ['tasks', 'services', 'support'],
       Cashier: ['billing', 'support'],
@@ -886,7 +917,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
           'Check-in is available only during the reserved dates.',
         );
         assert(
-          room.status === 'Ready',
+          room.status === 'Ready' && room.active !== false,
           'The room must be cleaned and inspection-approved before check-in.',
         );
         assert(
@@ -946,7 +977,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         );
       assert(
         available(s, roomId, start, end, r.id),
-        'These dates overlap another booking or the room is out of service.',
+        'These dates overlap another booking or the room is out of service; transfers require an inspection-approved room.',
       );
       const room = s.rooms.find((x) => x.id === roomId)!;
       assert(r.adults <= room.capacity, 'The new room does not accommodate this guest party.');
@@ -1416,16 +1447,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     case 'room.update': {
-      requirePermission('rooms');
-      assert(a.module !== 'Staff', 'Room pricing is managed by management.');
-      const r = s.rooms.find((x) => x.id === p.id);
-      assert(r, 'Room not found.');
-      assert(
-        Number.isFinite(Number(p.rate)) && Number(p.rate) > 0,
-        'Nightly rate must be a positive finite amount.',
-      );
-      r.rate = Number(p.rate);
-      if (p.type) r.type = clean(p.type, 'Room type');
+      applyPropertyCommand(s, a, command);
       break;
     }
     case 'account.create': {
@@ -1558,6 +1580,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     }
     case 'found.create': {
       requirePermission('tasks');
+      assert(a.module !== 'Staff' || ['Receptionist', 'Housekeeping'].includes(a.role), 'Lost and found is handled by reception and housekeeping.');
       assert(
         s.rooms.some((r) => r.id === p.roomId),
         'Choose a room.',
@@ -1573,6 +1596,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     }
     case 'found.return': {
       requirePermission('tasks');
+      assert(a.module !== 'Staff' || ['Receptionist', 'Housekeeping'].includes(a.role), 'Lost and found is handled by reception and housekeeping.');
       const item = s.found.find((x) => x.id === p.id);
       assert(item && item.status !== 'Returned to guest', 'Item already returned or missing.');
       item.status = 'Returned to guest';
@@ -1596,7 +1620,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     default:
-      throw new Error('Unknown action.');
+      if (!applyPropertyCommand(s, a, command)) throw new Error('Unknown action.');
   }
   s.audit.unshift({
     id: uid('LOG'),

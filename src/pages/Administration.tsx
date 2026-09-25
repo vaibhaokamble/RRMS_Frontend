@@ -527,6 +527,9 @@ export function Permissions() {
         Staff always see their own assigned work. Guest data stays scoped to the signed-in guest.
         Owner access remains available to manage the resort.
       </div>
+      <Card className="card-padding mb-6">
+        <label className="property-checkbox"><input type="checkbox" aria-label="Owner property administration" checked={s.ownerPropertyAdmin !== false} onChange={e => act({ type: 'property.permissions', payload: { enabled: e.target.checked } }, 'Owner property administration updated')} /><span>Owner property administration<small>Allow Owner to add and edit rooms and amenities. Monitoring and activation controls remain available.</small></span></label>
+      </Card>
       <Card>
         <div className="table-scroll">
           <table className="permission-table">

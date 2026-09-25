@@ -31,6 +31,7 @@ import {
   BriefcaseBusiness,
   Crown,
   Leaf,
+  Waves,
   ArrowRight,
 } from 'lucide-react';
 import { useStore } from '../lib/store';
@@ -48,6 +49,7 @@ const general: Item[] = [
   { path: 'dashboard', label: 'Overview', icon: LayoutDashboard, section: 'WORKSPACE' },
   { path: 'reservations', label: 'Reservations', icon: CalendarDays, permission: 'reservations' },
   { path: 'rooms', label: 'Rooms & availability', icon: BedDouble, permission: 'rooms' },
+  { path: 'amenities', label: 'Amenities', icon: Waves, permission: 'amenities' },
   { path: 'guests', label: 'Guest directory', icon: Users, permission: 'guests' },
   {
     path: 'tasks',
@@ -73,6 +75,7 @@ const general: Item[] = [
 const guest: Item[] = [
   { path: 'dashboard', label: 'My stay', icon: LayoutDashboard, section: 'YOUR RESORT EXPERIENCE' },
   { path: 'reservations', label: 'My bookings', icon: CalendarDays },
+  { path: 'amenities', label: 'Resort amenities', icon: Waves, permission: 'amenities' },
   { path: 'services', label: 'Services & experiences', icon: Sparkles, permission: 'services' },
   { path: 'billing', label: 'Bills & payments', icon: CreditCard, permission: 'billing' },
   { path: 'loyalty', label: 'Palm rewards', icon: Gift },
@@ -90,6 +93,7 @@ const owner: Item[] = [
   { path: 'reports', label: 'Reports & insights', icon: BarChart3 },
   { path: 'billing', label: 'Financial overview', icon: CreditCard },
   { path: 'rooms', label: 'Rooms & pricing', icon: BedDouble },
+  { path: 'amenities', label: 'Amenities & usage', icon: Waves },
   { path: 'accounts', label: 'Accounts & team', icon: Users, section: 'RESORT ADMINISTRATION' },
   { path: 'permissions', label: 'Roles & permissions', icon: ShieldCheck },
   { path: 'audit', label: 'Audit & activity', icon: ScrollText },

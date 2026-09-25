@@ -1,5 +1,6 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   ArrowUpRight,
@@ -141,7 +142,7 @@ export function Guests() {
                   <div key={r.id}>
                     <span>
                       <strong>
-                        {r.id} · Room {s.rooms.find((x) => x.id === r.roomId)?.number}
+                        {r.id} · Room {findRoom(s, r.roomId)?.number}
                       </strong>
                       <small>
                         {shortDate(r.checkIn)} – {shortDate(r.checkOut)}
@@ -256,8 +257,9 @@ function ProfileEditor({ guest }: { guest: Guest }) {
 }
 export function Support() {
   const { s, actor, act } = useStore();
+  const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState('All'),
-    [create, setCreate] = useState(false),
+    [create, setCreate] = useState(params.has('new')),
     [selected, setSelected] = useState<Complaint | null>(null);
   const guest = actor!.module === 'Guest',
     staff = actor!.module === 'Staff';

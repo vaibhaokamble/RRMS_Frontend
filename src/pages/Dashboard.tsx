@@ -1,3 +1,4 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReducedMotion } from 'framer-motion';
@@ -44,6 +45,7 @@ import {
   YAxis,
 } from 'recharts';
 import HeroSlider from '../components/HeroSlider';
+import StaffDashboard from './StaffDashboard';
 import { AccountsTable } from '../components/AccountsTable';
 import {
   Avatar,
@@ -58,7 +60,8 @@ import {
   Modal,
   FormModal
 } from '../components/ui';
-import { can, dashboard, dateOffset, folio, money, shortDate, today, roles } from '../lib/domain';
+import { can, dashboard, dateOffset, folio, money, shortDate, today, roles, serviceMenu } from '../lib/domain';
+import { roomStatus, roomStatuses } from '../lib/property';
 import { useStore } from '../lib/store';
 import { toast } from 'sonner';
 
@@ -69,6 +72,7 @@ export function Stat({
   detail,
   format,
   color = 'primary',
+  onClick,
 }: {
   label: string;
   value: number;
@@ -76,6 +80,7 @@ export function Stat({
   detail: string;
   format?: (n: number) => string;
   color?: 'primary' | 'accent' | 'warning' | 'danger' | string;
+  onClick?: () => void;
 }) {
   const tone = ['amber', 'accent', 'warning'].includes(color)
     ? 'amber'
@@ -85,6 +90,7 @@ export function Stat({
 
   return (
     <Card className={`stat-card stat-${tone}`}>
+      {onClick && <button className="stat-card-link" aria-label={`View ${label.toLowerCase()}`} onClick={onClick} />}
       <div className="stat-top">
         <span>{label}</span>
         <div className={`stat-icon ${tone}`}>
@@ -105,7 +111,7 @@ export function Stat({
 export default function Dashboard() {
   const { actor } = useStore();
   if (actor?.module === 'Guest') return <GuestDashboard />;
-  if (actor?.module === 'Staff') return <StaffRoleDashboard />;
+  if (actor?.module === 'Staff') return <StaffDashboard />;
   return <OperationsDashboard />;
 }
 
@@ -129,10 +135,10 @@ function OperationsDashboard() {
     };
   });
   const chartTotal = chart.reduce((n, p) => n + p.revenue, 0);
-  const colors = ['#1F3A2E', '#C9A227', '#D98E04', '#6B7160', '#C1443A'];
-  const roomData = ['Occupied', 'Ready', 'Dirty', 'Inspection', 'Maintenance'].map((status, i) => ({
+  const colors = ['#668f68', '#bd9b47', '#214b40', '#ca9958', '#b46b55', '#7c8791'];
+  const roomData = roomStatuses.map((status, i) => ({
     name: status,
-    value: s.rooms.filter((r) => r.status === status).length,
+    value: s.rooms.filter((r) => roomStatus(s, r) === status).length,
     color: colors[i],
   }));
   const arrivals = s.reservations.filter((r) => r.checkIn === today() && r.status === 'Confirmed');
@@ -190,6 +196,7 @@ function OperationsDashboard() {
       <div className="stats-grid">
         <Stat
           label="Room occupancy"
+          onClick={() => go('rooms?status=Occupied')}
           value={d.occupancy}
           format={(n) => `${n}%`}
           icon={BedDouble}
@@ -198,6 +205,7 @@ function OperationsDashboard() {
         />
         <Stat
           label={owner ? 'Total collected' : 'Available rooms'}
+          onClick={() => go(owner ? 'billing' : 'rooms?status=Available')}
           value={owner ? d.revenue : d.available}
           format={owner ? money : undefined}
           icon={owner ? IndianRupee : CalendarDays}
@@ -206,6 +214,7 @@ function OperationsDashboard() {
         />
         <Stat
           label={owner ? 'Operating expenses' : 'Today’s revenue'}
+          onClick={() => go('billing')}
           value={owner ? d.expenses : dailyRevenue}
           format={money}
           icon={IndianRupee}
@@ -214,6 +223,7 @@ function OperationsDashboard() {
         />
         <Stat
           label={owner ? 'Cancellation rate' : 'Today’s arrivals'}
+          onClick={() => go(owner ? 'reports' : 'reservations?tab=Arrivals')}
           value={
             owner
               ? Math.round(
@@ -234,6 +244,12 @@ function OperationsDashboard() {
         />
       </div>
 
+      <div className="dashboard-shortcuts">
+        <Button variant="outline" onClick={() => go('rooms?status=Maintenance')}><Wrench size={15} />Maintenance · {s.rooms.filter(r => roomStatus(s, r) === 'Maintenance').length}</Button>
+        {can(s, actor!, 'amenities') && <Button variant="outline" onClick={() => go('amenities')}><Waves size={15} />Amenities · {s.amenities.length}</Button>}
+        {!owner && can(s, actor!, 'guests') && <Button variant="outline" onClick={() => go('guests')}><Users size={15} />Guests · {s.guests.length}</Button>}
+        {(owner || can(s, actor!, 'team')) && <Button variant="outline" onClick={() => go(owner ? 'accounts' : 'team')}><Users size={15} />Team · {s.accounts.filter(a => a.module === 'Staff' && a.active).length}</Button>}
+      </div>
       <div className="dashboard-middle">
         <Card className="revenue-card">
           <CardHead
@@ -377,7 +393,7 @@ function OperationsDashboard() {
               <tbody className="divide-y divide-[#F0EBE1]">
                 {(owner ? s.reservations.slice(0, 5) : arrivals).map((r) => {
                   const g = s.guests.find((g) => g.id === r.guestId)!,
-                    room = s.rooms.find((x) => x.id === r.roomId)!;
+                    room = findRoom(s, r.roomId)!;
                   return (
                     <tr key={r.id} className="hover:bg-[#FAF7F2]/50">
                       <td className="p-3">
@@ -507,14 +523,15 @@ function GuestDashboard() {
   const { s, actor, act } = useStore();
   const navigate = useNavigate();
   const [pulseGold, setPulseGold] = useState(false);
-  const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
 
-  const g = s.guests.find((x) => x.id === actor!.guestId) ?? s.guests[0];
+  const g = s.guests.find((x) => x.id === actor!.guestId);
+  if (!g) return <Empty title="Guest profile unavailable" description="Please contact reception for assistance." />;
   const r =
     s.reservations.find((x) => x.guestId === g.id && x.status === 'Checked in') ??
     s.reservations.find((x) => x.guestId === g.id && x.status === 'Confirmed') ??
-    s.reservations[0];
-  const room = s.rooms.find((x) => x.id === r?.roomId);
+    s.reservations.filter(x => x.guestId === g.id).sort((a, b) => b.checkIn.localeCompare(a.checkIn))[0];
+  if (!r) return <><PageTitle title={`Welcome home, ${g.name.split(' ')[0]}.`} description="Your confirmed stay will appear here." /><Empty title="No stay yet" action={<Button onClick={() => navigate('/guest/support')}>Contact reception</Button>} /></>;
+  const room = findRoom(s, r?.roomId);
   const balance = r ? folio(s, r).balance : 0;
 
   // Booking Progress calculation
@@ -544,55 +561,13 @@ function GuestDashboard() {
     );
   };
 
-  const experiences = [
-    {
-      id: 'exp-1',
-      title: 'Ananda Spa & Wellness',
-      subtitle: 'Ayurvedic Healing Massage',
-      duration: '60 Mins',
-      price: '₹3,500',
-      rating: '4.9',
-      image: '/images/spa.jpg',
-      category: 'Spa',
-    },
-    {
-      id: 'exp-2',
-      title: 'Sunset Catamaran Cruise',
-      subtitle: 'Unlimited Drinks & Hors d’oeuvres',
-      duration: '2 Hours',
-      price: '₹5,000',
-      rating: '5.0',
-      image: '/images/cruise.jpg',
-      category: 'Excursion',
-    },
-    {
-      id: 'exp-3',
-      title: 'Candlelight Beachfront Dinner',
-      subtitle: '5-Course Chef’s Tasting Menu',
-      duration: 'Gourmet',
-      price: '₹8,500',
-      rating: '4.8',
-      image: '/images/dining.jpg',
-      category: 'Dining',
-    },
-    {
-      id: 'exp-4',
-      title: 'Deep Sea Scuba & Water Sports',
-      subtitle: 'PADI Instructor Guided Session',
-      duration: '3 Hours',
-      price: '₹4,200',
-      rating: '4.9',
-      image: '/images/scuba.jpg',
-      category: 'Adventure',
-    },
-  ];
-
-  const recentRequests = [
-    { id: 'req-1', service: 'Extra Feather Pillows & Linens', time: '10 mins ago', status: 'In progress', category: 'Housekeeping' },
-    { id: 'req-2', service: 'Continental Breakfast in Suite', time: 'Scheduled for 8:00 AM', status: 'Scheduled', category: 'Room Service' },
-    { id: 'req-3', service: 'Airport Buggy Transfer', time: 'Yesterday', status: 'Completed', category: 'Concierge' },
-  ];
-
+  const experiences = serviceMenu.filter(item => item.category !== 'Laundry').map(item => ({
+    id: item.name, title: item.name, subtitle: item.description, duration: 'Per service',
+    price: money(item.amount), image: item.category === 'Activities' ? '/images/resort.jpg' : '/images/suite.jpg', category: item.category,
+  }));
+  const recentRequests = s.complaints.filter(request => request.guestId === g.id).slice(0, 3).map(request => ({
+    id: request.id, service: request.subject, time: shortDate(request.date), status: request.status, category: request.category,
+  }));
   const dailySchedule = [
     { time: '08:30 AM', title: 'Sunrise Beachfront Yoga & Meditation', location: 'Beach Pavilion', icon: Sun },
     { time: '01:00 PM', title: 'Gourmet Poolside Grill & Live DJ', location: 'The Lagoon Bar', icon: Utensils },
@@ -726,9 +701,7 @@ function GuestDashboard() {
                   src="/images/suite.jpg"
                   alt="Resort Suite"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80');
-                  }}
+                  loading="lazy"
                 />
               </div>
 
@@ -821,7 +794,7 @@ function GuestDashboard() {
               <Button variant="outline" size="sm" className="flex-1 justify-center" onClick={() => navigate('/guest/billing')}>
                 View Folio Bill
               </Button>
-              <Button size="sm" className="flex-1 justify-center" onClick={() => toast.success('Redirecting to secure payment portal...')}>
+              <Button size="sm" className="flex-1 justify-center" onClick={() => navigate(`/guest/billing?reservation=${r.id}`)}>
                 Pay Now
               </Button>
             </div>
@@ -867,9 +840,9 @@ function GuestDashboard() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toast.success(`Reserved entry for ${item.title}!`)}
+                    onClick={() => handleQuickRequest(`Activity enquiry: ${item.title}`, 'Activities')}
                   >
-                    Reserve <ChevronRight size={14} />
+                    Enquire <ChevronRight size={14} />
                   </Button>
                 </div>
               );
@@ -885,7 +858,7 @@ function GuestDashboard() {
                 <h3 className="font-serif font-bold text-lg text-[#22261F]">Recent Requests</h3>
                 <p className="text-xs text-[#6B7160]">Track active service orders</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => navigate('/guest/support')}>
+              <Button variant="ghost" size="icon" aria-label="Create concierge request" onClick={() => navigate('/guest/support?new=1')}>
                 <Plus size={18} />
               </Button>
             </div>
@@ -901,6 +874,7 @@ function GuestDashboard() {
                   <span className="text-[11px] text-[#6B7160] block">{req.time}</span>
                 </div>
               ))}
+              {!recentRequests.length && <Empty title="No requests yet" description="Your concierge requests will appear here." />}
             </div>
           </div>
 
@@ -934,17 +908,12 @@ function GuestDashboard() {
                   src={exp.image}
                   alt={exp.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  onError={(e) => {
-                    (e.target as HTMLElement).setAttribute('src', 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80');
-                  }}
+                  loading="lazy"
                 />
                 <span className="absolute top-3 left-3 bg-[#1F3A2E]/90 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm">
                   {exp.category}
                 </span>
-                <span className="absolute bottom-3 right-3 bg-white/90 text-[#22261F] text-xs font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm">
-                  <Star size={12} className="text-[#C9A227] fill-[#C9A227]" />
-                  {exp.rating}
-                </span>
+                
               </div>
               <div className="p-4 space-y-2">
                 <h3 className="font-serif font-bold text-base text-[#22261F] group-hover:text-[#C9A227] transition-colors">
@@ -958,23 +927,9 @@ function GuestDashboard() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => {
-                      act(
-                        {
-                          type: 'complaint.create',
-                          payload: {
-                            guestId: g.id,
-                            roomId: room?.id ?? 'room-1',
-                            category: exp.category,
-                            subject: `Booking Request: ${exp.title}`,
-                            description: `Guest requested booking for ${exp.title} (${exp.price}).`,
-                          },
-                        },
-                        `Experience booked: ${exp.title}! Our team will confirm timing shortly.`
-                      );
-                    }}
+                    onClick={() => navigate(`/guest/services?new=1&service=${encodeURIComponent(exp.title)}`)}
                   >
-                    Book Now
+                    Request
                   </Button>
                 </div>
               </div>
@@ -1006,7 +961,7 @@ function GuestDashboard() {
               🛺 Resort Buggy
             </Button>
             <Button size="sm" onClick={() => navigate('/guest/support')}>
-              <MessageSquare size={15} /> Live Concierge Chat
+              <MessageSquare size={15} /> Concierge requests
             </Button>
           </div>
         </div>
@@ -1016,387 +971,5 @@ function GuestDashboard() {
 }
 
 
-/* Dedicated Role-Based Staff Dashboards (Strictly role-based via Login, no generic switcher) */
-function StaffRoleDashboard() {
-  const { s, actor, act } = useStore();
-  const navigate = useNavigate();
-  const role = actor?.role as string;
-  const [guestFormOpen, setGuestFormOpen] = useState(false);
-  const [damageReportOpen, setDamageReportOpen] = useState(false);
 
-  // Role: Receptionist
-  if (role === 'Receptionist') {
-    return (
-      <PageMotion>
-        <PageTitle
-          eyebrow="RECEPTIONIST WORKSPACE · FRONT DESK"
-          title={`Front Desk Operations — Welcome, ${actor!.name.split(' ')[0]}`}
-          description="Check room availability, register walk-in guests, generate guest portal logins, & process check-in/out."
-          actions={
-            <Button onClick={() => setGuestFormOpen(true)}>
-              <UserPlus size={16} /> Walk-in Registration & Guest Credentials
-            </Button>
-          }
-        />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
-          <Card className="p-5 md:col-span-2">
-            <CardHead title="Today's Arrivals & Check-Ins" subtitle="Confirm guest arrival, assign room, and activate stay" />
-            <div className="table-scroll mt-3">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#FAF7F2] text-[#6B7160]">
-                  <tr>
-                    <th className="p-2.5">Guest Name</th>
-                    <th className="p-2.5">Assigned Room</th>
-                    <th className="p-2.5">Check-In / Out</th>
-                    <th className="p-2.5">Status</th>
-                    <th className="p-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0EBE1]">
-                  {s.reservations
-                    .filter((r) => ['Confirmed', 'Checked in'].includes(r.status))
-                    .slice(0, 6)
-                    .map((r) => {
-                      const g = s.guests.find((x) => x.id === r.guestId);
-                      const room = s.rooms.find((x) => x.id === r.roomId);
-                      return (
-                        <tr key={r.id}>
-                          <td className="p-2.5 font-bold text-[#22261F]">{g?.name ?? 'Guest'}</td>
-                          <td className="p-2.5">Room {room?.number} ({room?.type})</td>
-                          <td className="p-2.5">{shortDate(r.checkIn)} – {shortDate(r.checkOut)}</td>
-                          <td className="p-2.5"><Badge>{r.status}</Badge></td>
-                          <td className="p-2.5 text-right">
-                            {r.status === 'Confirmed' && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  act(
-                                    { type: 'reservation.status', payload: { id: r.id, status: 'Checked in' } },
-                                    `Guest ${g?.name} checked in successfully!`
-                                  )
-                                }
-                              >
-                                Check In
-                              </Button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <CardHead title="Room Availability Check" subtitle="Search ready rooms by wing" />
-            <div className="space-y-2 mt-3 max-h-72 overflow-y-auto">
-              {s.rooms.slice(0, 8).map((rm) => (
-                <div key={rm.id} className="p-2.5 border border-[#F0EBE1] rounded-lg flex items-center justify-between text-xs">
-                  <div>
-                    <strong className="block text-[#22261F]">Room {rm.number}</strong>
-                    <span className="text-[11px] text-[#6B7160]">{rm.type} · ₹{rm.rate}/night</span>
-                  </div>
-                  <Badge>{rm.status}</Badge>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        {/* Walk-in Guest Registration & Auto Guest Credentials Popup Modal */}
-        {guestFormOpen && (
-          <FormModal
-            title="Register Walk-in Guest & Issue Credentials"
-            description="Create new reservation and auto-generate Guest Portal credentials for the guest."
-            initial={{ checkIn: today(), checkOut: dateOffset(2) }}
-            fields={[
-              { name: 'name', label: 'Guest Full Name', required: true, placeholder: 'e.g. Ramesh Verma' },
-              { name: 'email', label: 'Guest Email (Login ID)', type: 'email', required: true, placeholder: 'ramesh@example.com' },
-              { name: 'phone', label: 'Phone Number', required: true, placeholder: '+91 98765 00000' },
-              {
-                name: 'roomId',
-                label: 'Assign Room',
-                type: 'select',
-                required: true,
-                options: s.rooms.filter((r) => r.status === 'Ready').map((r) => ({ value: r.id, label: `Room ${r.number} (${r.type} - ₹${r.rate})` })),
-              },
-              { name: 'checkIn', label: 'Check-In Date', type: 'date', required: true },
-              { name: 'checkOut', label: 'Check-Out Date', type: 'date', required: true },
-            ]}
-            onClose={() => setGuestFormOpen(false)}
-            onSubmit={(values) => {
-              const res = act({
-                type: 'reservation.create',
-                payload: {
-                  name: values.name,
-                  email: values.email,
-                  phone: values.phone,
-                  roomId: values.roomId,
-                  checkIn: values.checkIn || today(),
-                  checkOut: values.checkOut || dateOffset(2),
-                  adults: 2,
-                },
-              }, 'Walk-in reservation confirmed! Guest credentials generated.');
-              return res;
-            }}
-            submit="Confirm Walk-In & Generate Login"
-          />
-        )}
-      </PageMotion>
-    );
-  }
-
-  // Role: Housekeeping
-  if (role === 'Housekeeping') {
-    return (
-      <PageMotion>
-        <PageTitle
-          eyebrow="HOUSEKEEPING WORKSPACE · ROOM CLEANING & TURNOVER"
-          title={`Housekeeping Board — Welcome, ${actor!.name.split(' ')[0]}`}
-          description="View assigned turnover tasks, update cleaning statuses, and report room damage / lost & found items."
-          actions={
-            <Button variant="outline" onClick={() => setDamageReportOpen(true)}>
-              <AlertCircle size={16} /> Report Damage / Lost & Found
-            </Button>
-          }
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
-          <Card className="p-5 md:col-span-2">
-            <CardHead title="Assigned Turnover Cleaning Tasks" subtitle="Update status: Dirty → Cleaning → Inspection" />
-            <div className="space-y-3 mt-3">
-              {s.tasks
-                .filter((t) => t.role === 'Housekeeping')
-                .map((task) => {
-                  const rm = s.rooms.find((r) => r.id === task.roomId);
-                  return (
-                    <div key={task.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
-                      <div>
-                        <strong className="block text-sm text-[#22261F]">{task.title}</strong>
-                        <span className="text-xs text-[#6B7160]">Room {rm?.number} ({rm?.type}) · Priority: {task.priority}</span>
-                        <div className="mt-1"><Badge>{task.status}</Badge></div>
-                      </div>
-                      <div className="flex gap-2">
-                        {task.status === 'Pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'In progress' } }, 'Cleaning started')}
-                          >
-                            Start Cleaning
-                          </Button>
-                        )}
-                        {task.status === 'In progress' && (
-                          <Button
-                            size="sm"
-                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'Inspection' } }, 'Task sent for management inspection')}
-                          >
-                            Request Inspection
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <CardHead title="Dirty Rooms Board" subtitle="Rooms awaiting turnover" />
-            <div className="space-y-2 mt-3">
-              {s.rooms
-                .filter((r) => r.status === 'Dirty')
-                .map((r) => (
-                  <div key={r.id} className="p-3 border border-[#F0EBE1] rounded-lg flex items-center justify-between text-xs">
-                    <div>
-                      <strong className="block text-[#22261F]">Room {r.number}</strong>
-                      <span className="text-[#6B7160]">{r.type}</span>
-                    </div>
-                    <Badge>Dirty</Badge>
-                  </div>
-                ))}
-              {!s.rooms.some((r) => r.status === 'Dirty') && (
-                <p className="text-xs text-[#6B7160] py-4 text-center">All rooms cleaned!</p>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {damageReportOpen && (
-          <FormModal
-            title="Report Room Damage or Lost & Found"
-            description="Log item found or damage observed during turnover."
-            fields={[
-              {
-                name: 'roomId',
-                label: 'Room Number',
-                type: 'select',
-                required: true,
-                options: s.rooms.map((r) => ({ value: r.id, label: `Room ${r.number}` })),
-              },
-              { name: 'title', label: 'Item / Damage Description', required: true, placeholder: 'e.g. Silver reading glasses found on table' },
-            ]}
-            onClose={() => setDamageReportOpen(false)}
-            onSubmit={(values) => {
-              return act({ type: 'found.create', payload: { roomId: values.roomId, title: values.title } }, 'Lost & Found item logged!');
-            }}
-            submit="Submit Report"
-          />
-        )}
-      </PageMotion>
-    );
-  }
-
-  // Role: Cashier
-  if (role === 'Cashier') {
-    return (
-      <PageMotion>
-        <PageTitle
-          eyebrow="CASHIER WORKSPACE · BILLING & PAYMENTS"
-          title={`Cashier Desk — Welcome, ${actor!.name.split(' ')[0]}`}
-          description="View guest folios, accept payments via Card/UPI/Cash/Bank, issue refunds, and print formal invoices."
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
-          <Card className="p-5 md:col-span-2">
-            <CardHead title="Guest Folios & Payment Processing" subtitle="Select a stay to collect payment or view charges" />
-            <div className="table-scroll mt-3">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-[#FAF7F2] text-[#6B7160]">
-                  <tr>
-                    <th className="p-2.5">Guest</th>
-                    <th className="p-2.5">Room</th>
-                    <th className="p-2.5">Total Bill</th>
-                    <th className="p-2.5">Paid</th>
-                    <th className="p-2.5">Balance</th>
-                    <th className="p-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F0EBE1]">
-                  {s.reservations
-                    .filter((r) => ['Checked in', 'Completed'].includes(r.status))
-                    .slice(0, 6)
-                    .map((r) => {
-                      const g = s.guests.find((x) => x.id === r.guestId);
-                      const room = s.rooms.find((x) => x.id === r.roomId);
-                      const f = folio(s, r);
-                      return (
-                        <tr key={r.id}>
-                          <td className="p-2.5 font-bold text-[#22261F]">{g?.name}</td>
-                          <td className="p-2.5">Room {room?.number}</td>
-                          <td className="p-2.5">{money(f.total)}</td>
-                          <td className="p-2.5 text-[#2E7D4F]">{money(f.paid)}</td>
-                          <td className="p-2.5 font-bold text-[#C1443A]">{money(f.balance)}</td>
-                          <td className="p-2.5 text-right">
-                            {f.balance > 0 ? (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  act({
-                                    type: 'payment.create',
-                                    payload: { reservationId: r.id, amount: f.balance, method: 'Card' },
-                                  }, `Payment of ${money(f.balance)} collected!`)
-                                }
-                              >
-                                Accept Payment
-                              </Button>
-                            ) : (
-                              <span className="text-xs text-[#2E7D4F] font-bold">● Settled</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <CardHead title="Recent Payment Transactions" subtitle="Live ledger of collections" />
-            <div className="space-y-2 mt-3 max-h-72 overflow-y-auto">
-              {s.payments.slice(0, 6).map((p) => (
-                <div key={p.id} className="p-2.5 border border-[#F0EBE1] rounded-lg text-xs flex justify-between">
-                  <div>
-                    <strong className="block text-[#22261F]">{p.type === 'Payment' ? 'Received' : 'Refund'}</strong>
-                    <span className="text-[#6B7160]">{p.method}</span>
-                  </div>
-                  <strong className={`font-mono ${p.type === 'Payment' ? 'text-[#2E7D4F]' : 'text-[#C1443A]'}`}>
-                    {p.type === 'Payment' ? '+' : '-'}{money(p.amount)}
-                  </strong>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </PageMotion>
-    );
-  }
-
-  // Default fallback for Maintenance, Gardener, F&B, Spa roles
-  return (
-    <PageMotion>
-      <PageTitle
-        eyebrow={`${role.toUpperCase()} WORKSPACE · DEPARTMENT OPERATIONS`}
-        title={`${role} Portal — Welcome, ${actor!.name.split(' ')[0]}`}
-        description={`Manage ${role} work requests, update service status, and complete resort duties.`}
-      />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
-        <Card className="p-5">
-          <CardHead title={`Open ${role} Service Requests & Tasks`} subtitle="Manage active work orders" />
-          <div className="space-y-3 mt-3">
-            {s.services
-              .filter((x) => x.status !== 'Completed')
-              .slice(0, 5)
-              .map((srv) => (
-                <div key={srv.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
-                  <div>
-                    <strong className="block text-sm text-[#22261F]">{srv.name}</strong>
-                    <span className="text-xs text-[#6B7160]">{srv.options || 'Standard request'} · {srv.time}</span>
-                    <div className="mt-1"><Badge>{srv.status}</Badge></div>
-                  </div>
-                  {srv.status === 'Requested' && (
-                    <Button
-                      size="sm"
-                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Service started')}
-                    >
-                      Start Service
-                    </Button>
-                  )}
-                  {srv.status === 'In progress' && (
-                    <Button
-                      size="sm"
-                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Service completed & charged to folio')}
-                    >
-                      Complete & Charge
-                    </Button>
-                  )}
-                </div>
-              ))}
-            {!s.services.some((x) => x.status !== 'Completed') && (
-              <p className="text-xs text-[#6B7160] py-6 text-center">No open service requests right now.</p>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <CardHead title="Department Tasks" subtitle="Assigned work orders" />
-          <div className="space-y-3 mt-3">
-            {s.tasks
-              .filter((t) => t.role === (role as any))
-              .map((task) => (
-                <div key={task.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
-                  <div>
-                    <strong className="block text-xs text-[#22261F]">{task.title}</strong>
-                    <span className="text-[11px] text-[#6B7160]">Priority: {task.priority}</span>
-                  </div>
-                  <Badge>{task.status}</Badge>
-                </div>
-              ))}
-          </div>
-        </Card>
-      </div>
-    </PageMotion>
-  );
-}
