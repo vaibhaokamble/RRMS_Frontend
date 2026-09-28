@@ -119,7 +119,7 @@ export interface Task {
   deadline: string;
   status: 'Pending' | 'In progress' | 'Inspection' | 'Completed';
   notes: string;
-  kind: 'Cleaning' | 'Maintenance' | 'Property' | 'General';
+  kind: 'Cleaning' | 'Maintenance' | 'Property' | 'General' | 'Receptionist' | 'Housekeeping' | 'Cashier' | 'Gardener' | 'F&B' | 'Spa';
 }
 export interface Payment {
   id: string;
@@ -1148,16 +1148,27 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       assert(room, 'Choose a room or property location.');
       const kind = p.kind as Task['kind'];
       assert(
-        ['Cleaning', 'Maintenance', 'Property', 'General'].includes(kind),
+        [
+          'Cleaning',
+          'Maintenance',
+          'Property',
+          'General',
+          'Receptionist',
+          'Housekeeping',
+          'Cashier',
+          'Gardener',
+          'F&B',
+          'Spa',
+        ].includes(kind),
         'Select a valid task category.',
       );
       const role: StaffRole =
         kind === 'Cleaning'
           ? 'Housekeeping'
-          : kind === 'Maintenance'
-            ? 'Maintenance'
-            : kind === 'Property'
-              ? 'Gardener'
+          : kind === 'Property'
+            ? 'Gardener'
+            : (roles as readonly string[]).includes(kind)
+              ? (kind as StaffRole)
               : (p.role ?? 'Receptionist');
       const assignee = p.assignee || s.accounts.find((x) => x.role === role && x.active)?.id || '';
       assert(

@@ -1777,6 +1777,9 @@ td small {
   scrollbar-width: none;
   min-height: 53px;
 }
+.tabs::-webkit-scrollbar {
+  display: none;
+}
 .tab {
   padding: 17px 0 14px;
   display: flex;

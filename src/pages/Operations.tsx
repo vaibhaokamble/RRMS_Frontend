@@ -71,20 +71,30 @@ export function Tasks() {
   const own = actor!.module === 'Staff';
   const assigned = s.tasks.filter(t => !own || t.assignee === actor!.id);
   const taskTabs = ['All tasks',
-    ...(!own || assigned.some(t => t.kind === 'Cleaning') ? ['Housekeeping'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Cleaning' || t.kind === 'Housekeeping') ? ['Housekeeping'] : []),
     ...(!own || assigned.some(t => t.kind === 'Maintenance') ? ['Maintenance'] : []),
     ...(!own || assigned.some(t => t.kind === 'Property') ? ['Property care'] : []),
-    ...(!own || assigned.some(t => ['Cleaning', 'Maintenance'].includes(t.kind)) ? ['Inspections'] : []),
+    ...(!own || assigned.some(t => ['Cleaning', 'Housekeeping', 'Maintenance'].includes(t.kind)) ? ['Inspections'] : []),
     ...(!own || ['Receptionist', 'Housekeeping'].includes(actor!.role) ? ['Lost & found'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Receptionist') ? ['Receptionist'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Cashier') ? ['Cashier'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Gardener') ? ['Gardener'] : []),
+    ...(!own || assigned.some(t => t.kind === 'F&B') ? ['F&B'] : []),
+    ...(!own || assigned.some(t => t.kind === 'Spa') ? ['Spa'] : []),
   ];
   const tasks = s.tasks.filter(
     (t) =>
       (!own || t.assignee === actor!.id) &&
       (tab === 'All tasks' ||
-        (tab === 'Housekeeping' && t.kind === 'Cleaning') ||
+        (tab === 'Housekeeping' && (t.kind === 'Cleaning' || t.kind === 'Housekeeping')) ||
         (tab === 'Maintenance' && t.kind === 'Maintenance') ||
         (tab === 'Property care' && t.kind === 'Property') ||
-        (tab === 'Inspections' && t.status === 'Inspection')),
+        (tab === 'Inspections' && t.status === 'Inspection') ||
+        (tab === 'Receptionist' && t.kind === 'Receptionist') ||
+        (tab === 'Cashier' && t.kind === 'Cashier') ||
+        (tab === 'Gardener' && t.kind === 'Gardener') ||
+        (tab === 'F&B' && t.kind === 'F&B') ||
+        (tab === 'Spa' && t.kind === 'Spa')),
   );
   const [search, setSearch] = useState('');
   const shown = tasks.filter((t) =>
@@ -391,7 +401,18 @@ export function TaskForm({ onClose, roomId }: { onClose: () => void; roomId?: st
           required: true,
           options: (actor!.module === 'Staff'
             ? ['Maintenance', 'Property']
-            : ['Cleaning', 'Maintenance', 'Property', 'General']
+            : [
+                'Receptionist',
+                'Housekeeping',
+                'Cashier',
+                'Maintenance',
+                'Gardener',
+                'F&B',
+                'Spa',
+                'Cleaning',
+                'Property',
+                'General',
+              ]
           ).map((x) => ({ value: x, label: x })),
         },
         {

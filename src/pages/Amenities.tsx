@@ -82,18 +82,44 @@ function AmenityForm({ amenity, onClose }: { amenity?: Amenity; onClose: () => v
 
   return <Modal open title={amenity ? 'Edit ' + amenity.name : 'Add amenity'} description="Keep your room essentials and resort amenities up to date." onClose={onClose}>
     <form onSubmit={e => { e.preventDefault(); if (act({ type: 'amenity.save', payload: { id: amenity?.id, ...v } }, amenity ? 'Amenity updated' : 'Amenity added')) onClose(); }}>
-      <div className="dialog-body property-form"><Fields values={v} onChange={change} fields={[
-        { name: 'name', label: 'Amenity Name', required: true },
-        ...(!addingCategory ? [{ name: 'category', label: 'Category', type: 'select', required: true, options: [...(s.amenityCategories || []), '+ Add New Category'].map(value => ({ value, label: value })) }] : []),
-        { name: 'type', label: 'Amenity Type', type: 'select', required: true, options: ['Room', 'Resort'].map(value => ({ value, label: value })) },
-      ]} />
-      {addingCategory && (
-        <div style={{ display: 'flex', gap: '8px', marginTop: '-12px', marginBottom: '16px' }}>
-          <input autoFocus placeholder="New category..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-          <Button type="button" onClick={addCategory}>Add</Button>
-          <Button type="button" variant="ghost" onClick={() => { setAddingCategory(false); setNewCategory(''); }}>Cancel</Button>
+      <div className="dialog-body property-form">
+        <div className="form-grid">
+          <label className="field">
+            <span>Amenity Name <b>*</b></span>
+            <input required type="text" value={v.name} onChange={e => change('name', e.target.value)} />
+          </label>
+          
+          {!addingCategory ? (
+            <label className="field">
+              <span>Category <b>*</b></span>
+              <select required value={v.category} onChange={e => change('category', e.target.value)}>
+                <option value="">Select category</option>
+                {[...(s.amenityCategories || []), '+ Add New Category'].map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="field">
+              <span>Category <b>*</b></span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input autoFocus placeholder="New category..." value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{ flex: 1, padding: '0 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', height: '42px' }} />
+                <Button type="button" onClick={addCategory} style={{ height: '42px', padding: '0 16px' }}>Add</Button>
+                <Button type="button" variant="ghost" onClick={() => { setAddingCategory(false); setNewCategory(''); }} style={{ height: '42px', padding: '0 16px' }}>Cancel</Button>
+              </div>
+            </label>
+          )}
+
+          <label className="field">
+            <span>Amenity Type <b>*</b></span>
+            <select required value={v.type} onChange={e => change('type', e.target.value)}>
+              <option value="">Select amenity type</option>
+              {['Room', 'Resort'].map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
         </div>
-      )}
       </div>
       <div className="dialog-footer"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit">{amenity ? 'Save amenity' : 'Add amenity'}<Check size={15} /></Button></div>
     </form>

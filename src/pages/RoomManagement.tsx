@@ -100,16 +100,57 @@ function RoomForm({ room, onClose }: { room?: Room; onClose: () => void }) {
     setNewType('');
   };
 
-  return <Modal open wide title={room ? `Edit room ${room.number}` : 'Add room'} description="Room details are shared with reservations, housekeeping, and Owner monitoring." onClose={onClose}><form onSubmit={e => { e.preventDefault(); if (!busy && act({ type: room ? 'room.update' : 'room.create', payload: v }, room ? 'Room updated' : 'Room added to the resort')) onClose(); }}><div className="dialog-body property-form"><Fields values={v} onChange={change} fields={[{ name: 'number', label: 'Room number', required: true }, { name: 'floor', label: 'Floor', required: true }, ...(!addingType ? [{ name: 'type', label: 'Room type', type: 'select', required: true, options: [...(s.roomTypes || []), '+ Add New Room Type'].map(value => ({ value, label: value })) }] : []), { name: 'capacity', label: 'Capacity', type: 'number', min: 1, max: 30, required: true }, { name: 'bedType', label: 'Bed type', type: 'select', required: true, options: ['Single', 'Twin', 'Queen', 'King', 'Bunk'].map(value => ({ value, label: value })) }, { name: 'beds', label: 'Number of beds', type: 'number', min: 1, max: 20, required: true }, { name: 'rate', label: 'Base price (₹ / night)', type: 'number', min: 1, max: 1000000, step: 1, required: true }, { name: 'description', label: 'Description', type: 'textarea', wide: true }]} />
-  {addingType && (
-    <div style={{ display: 'flex', gap: '8px', marginTop: '-12px', marginBottom: '16px' }}>
-      <input autoFocus placeholder="New room type..." value={newType} onChange={e => setNewType(e.target.value)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-      <Button type="button" onClick={addType}>Add</Button>
-      <Button type="button" variant="ghost" onClick={() => { setAddingType(false); setNewType(''); }}>Cancel</Button>
-    </div>
-  )}
-  <h3>Room images</h3><PropertyMedia images={v.images} onChange={images => change('images', images)} onBusy={setBusy} />
-  <h3>Amenities</h3><div className="property-check-grid">{s.amenities.filter(a => a.type === 'Room').map(a => <label className="property-checkbox" key={a.id}><input type="checkbox" checked={v.amenityIds.includes(a.id)} onChange={e => change('amenityIds', e.target.checked ? [...v.amenityIds, a.id] : v.amenityIds.filter((id: string) => id !== a.id))} /><span>{a.name}<small>{a.active && !a.maintenance ? a.category : 'Currently unavailable'}</small></span></label>)}{!s.amenities.some(a => a.type === 'Room') && <p className="muted">Add Room amenities in Amenities management to assign them here.</p>}</div></div><div className="dialog-footer"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" disabled={busy}>{room ? 'Save room' : 'Add room'}<Check size={15} /></Button></div></form></Modal>;
+  return (
+    <>
+      <Modal open wide title={room ? `Edit room ${room.number}` : 'Add room'} description="Room details are shared with reservations, housekeeping, and Owner monitoring." onClose={onClose}>
+        <form onSubmit={e => { e.preventDefault(); if (!busy && act({ type: room ? 'room.update' : 'room.create', payload: v }, room ? 'Room updated' : 'Room added to the resort')) onClose(); }}>
+          <div className="dialog-body property-form">
+            <Fields values={v} onChange={change} fields={[
+              { name: 'number', label: 'Room number', required: true }, 
+              { name: 'floor', label: 'Floor', required: true }, 
+              { name: 'type', label: 'Room type', type: 'select', required: true, options: [...(s.roomTypes || []), '+ Add New Room Type'].map(value => ({ value, label: value })) }, 
+              { name: 'capacity', label: 'Capacity', type: 'number', min: 1, max: 30, required: true }, 
+              { name: 'bedType', label: 'Bed type', type: 'select', required: true, options: ['Single', 'Twin', 'Queen', 'King', 'Bunk'].map(value => ({ value, label: value })) }, 
+              { name: 'beds', label: 'Number of beds', type: 'number', min: 1, max: 20, required: true }, 
+              { name: 'rate', label: 'Base price (₹ / night)', type: 'number', min: 1, max: 1000000, step: 1, required: true }, 
+              { name: 'description', label: 'Description', type: 'textarea', wide: true }
+            ]} />
+            <h3>Room images</h3>
+            <PropertyMedia images={v.images} onChange={images => change('images', images)} onBusy={setBusy} />
+            <h3>Amenities</h3>
+            <div className="property-check-grid">
+              {s.amenities.filter(a => a.type === 'Room').map(a => (
+                <label className="property-checkbox" key={a.id}>
+                  <input type="checkbox" checked={v.amenityIds.includes(a.id)} onChange={e => change('amenityIds', e.target.checked ? [...v.amenityIds, a.id] : v.amenityIds.filter((id: string) => id !== a.id))} />
+                  <span>{a.name}<small>{a.active && !a.maintenance ? a.category : 'Currently unavailable'}</small></span>
+                </label>
+              ))}
+              {!s.amenities.some(a => a.type === 'Room') && <p className="muted">Add Room amenities in Amenities management to assign them here.</p>}
+            </div>
+          </div>
+          <div className="dialog-footer">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={busy}>{room ? 'Save room' : 'Add room'}<Check size={15} /></Button>
+          </div>
+        </form>
+      </Modal>
+
+      {addingType && (
+        <Modal open title="Add new room type" description="Create a new room type to categorize your rooms." onClose={() => { setAddingType(false); setNewType(''); }}>
+          <div className="dialog-body">
+            <label className="field field-wide">
+              <span>Room type name <b>*</b></span>
+              <input autoFocus placeholder="e.g. Presidential Suite" value={newType} onChange={e => setNewType(e.target.value)} onKeyDown={e => e.key === 'Enter' && addType()} />
+            </label>
+          </div>
+          <div className="dialog-footer">
+            <Button type="button" variant="outline" onClick={() => { setAddingType(false); setNewType(''); }}>Cancel</Button>
+            <Button type="button" onClick={addType}>Add room type</Button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
 }
 function RoomStatusForm({ room, onClose }: { room: Room; onClose: () => void }) {
   const { s, act } = useStore();
