@@ -1423,6 +1423,22 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       });
       break;
     }
+    case 'review.update': {
+      assert(a.module === 'Guest', 'Only guests can update their reviews.');
+      const review = s.reviews.find((x) => x.id === p.id);
+      assert(review, 'Review not found.');
+      assert(review.guestId === a.guestId, 'You can only update your own review.');
+      for (const k of ['rating', 'roomRating', 'serviceRating'])
+        assert(
+          Number.isInteger(Number(p[k])) && p[k] >= 1 && p[k] <= 5,
+          'Ratings must be between 1 and 5.',
+        );
+      review.rating = Number(p.rating);
+      review.roomRating = Number(p.roomRating);
+      review.serviceRating = Number(p.serviceRating);
+      review.text = clean(p.text, 'Feedback');
+      break;
+    }
     case 'loyalty.redeem': {
       assert(a.module === 'Guest', 'Only guests can redeem their points.');
       const g = s.guests.find((x) => x.id === a.guestId)!;

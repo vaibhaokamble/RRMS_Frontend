@@ -20,7 +20,7 @@ import {
 import { toast } from 'sonner';
 import { useStore } from '../lib/store';
 import { money, shortDate, today, roles, can } from '../lib/domain';
-import type { Guest, Account, Complaint } from '../lib/domain';
+import type { Guest, Account, Complaint, Review } from '../lib/domain';
 import {
   PageTitle,
   Card,
@@ -401,9 +401,20 @@ export function Support() {
               label: 'Category',
               type: 'select',
               required: true,
-              options: ['Request', 'Complaint', 'Maintenance', 'Food & Beverage', 'Other'].map(
-                (x) => ({ value: x, label: x }),
-              ),
+              options: [
+                'Request',
+                'Complaint',
+                'Maintenance',
+                'Food & Beverage',
+                'Housekeeping',
+                'Property care',
+                'Inspections',
+                'Lost & found',
+                'Receptionist',
+                'Cashier',
+                'Gardener',
+                'Spa',
+              ].map((x) => ({ value: x, label: x })),
             },
             {
               name: 'description',
@@ -777,6 +788,7 @@ export function Loyalty() {
 export function Reviews() {
   const { s, actor, act } = useStore();
   const [create, setCreate] = useState(false);
+  const [editing, setEditing] = useState<Review | null>(null);
   const mine = s.reviews.filter((r) => r.guestId === actor!.guestId);
   const eligible = s.reservations.filter(
     (r) =>
@@ -808,9 +820,15 @@ export function Reviews() {
           <div className="review-grid">
             {mine.map((r) => (
               <article key={r.id}>
-                <div className="stars">
-                  {'★'.repeat(r.rating)}
-                  {'☆'.repeat(5 - r.rating)}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="stars">
+                    {'★'.repeat(r.rating)}
+                    {'☆'.repeat(5 - r.rating)}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setEditing(r)}>
+                    <Pencil size={14} />
+                    Edit
+                  </Button>
                 </div>
                 <p>“{r.text}”</p>
                 <small>
@@ -858,12 +876,8 @@ export function Reviews() {
             ...['rating', 'roomRating', 'serviceRating'].map((name, i) => ({
               name,
               label: ['Resort experience', 'Room experience', 'Service experience'][i],
-              type: 'select',
+              type: 'rating',
               required: true,
-              options: [5, 4, 3, 2, 1].map((n) => ({
-                value: String(n),
-                label: `${n} ${'★'.repeat(n)}`,
-              })),
             })),
             {
               name: 'text',
@@ -877,6 +891,40 @@ export function Reviews() {
           onClose={() => setCreate(false)}
           onSubmit={(v) =>
             act({ type: 'review.create', payload: v }, 'Thank you for sharing your experience')
+          }
+        />
+      )}
+      {editing && (
+        <FormModal
+          title="Edit your review"
+          description="Update your feedback about your stay."
+          initial={{ ...editing }}
+          fields={[
+            {
+              name: 'reservationId',
+              label: 'Completed stay',
+              type: 'text',
+              wide: true,
+              disabled: true,
+            },
+            ...['rating', 'roomRating', 'serviceRating'].map((name, i) => ({
+              name,
+              label: ['Resort experience', 'Room experience', 'Service experience'][i],
+              type: 'rating',
+              required: true,
+            })),
+            {
+              name: 'text',
+              label: 'Your memories & feedback',
+              type: 'textarea',
+              required: true,
+              wide: true,
+            },
+          ]}
+          submit="Update review"
+          onClose={() => setEditing(null)}
+          onSubmit={(v) =>
+            act({ type: 'review.update', payload: { ...v, id: editing.id } }, 'Your review has been updated')
           }
         />
       )}

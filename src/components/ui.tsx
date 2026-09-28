@@ -322,6 +322,20 @@ export function Fields({
               onChange={(e) => onChange(f.name, e.target.value)}
               rows={3}
             />
+          ) : f.type === 'rating' ? (
+            <div className="star-rating-input">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => onChange(f.name, star)}
+                  className={(values[f.name] || 0) >= star ? 'active' : ''}
+                  aria-label={`Rate ${star} stars`}
+                >
+                  {(values[f.name] || 0) >= star ? '★' : '☆'}
+                </button>
+              ))}
+            </div>
           ) : f.type === 'checkbox' ? (
             <div className="check-field">
               <input
