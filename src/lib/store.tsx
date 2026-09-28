@@ -3,14 +3,14 @@ import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { applyCommand, seed } from './domain';
 import type { State, Account, Command, Module, Role } from './domain';
-const KEY = 'rrms-palm-v1';
-const SESSION = 'rrms-session-v1';
+const KEY = 'rrms-demo-v3';
+const SESSION = 'rrms-session-v3';
 function readState(): State {
   try {
     const stored = localStorage.getItem(KEY);
     if (stored) {
       const s = JSON.parse(stored);
-      if (s.version === 1 && s.accounts && s.rooms) return s;
+      if (s.version === 3 && s.accounts && s.rooms) return s;
     }
   } catch {
     /* recover demo */

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
 @import 'tailwindcss';
 
 @theme {
@@ -1860,7 +1860,7 @@ td small {
   background: #fff;
   border-radius: 17px;
   box-shadow: 0 30px 100px #12231933;
-  z-index: 151;
+  z-index: 150;
   animation: dialog-in 0.18s;
   outline: none;
   scrollbar-width: thin;
@@ -5863,4 +5863,385 @@ td small {
     animation: none !important;
     transition: none !important;
   }
+}
+
+
+
+
+/* ==========================================================================
+   ALABASTER WARM EXECUTIVE DASHBOARD (Stitch Screen 3fbc08a43a244b3a9010afc5698da47a)
+   ========================================================================== */
+
+:root {
+  --color-primary: #3c9696 !important;
+  --color-primary-dark: #2e7a7a !important;
+  --color-background: #F6EFEF !important;
+  --color-surface: #FFFFFF !important;
+  --color-surface-soft: #F9F7F7 !important;
+  --color-text-primary: #111827 !important;
+  --color-text-secondary: #4b5563 !important;
+  --color-muted: #6b7280 !important;
+  --color-border: rgba(17, 24, 39, 0.1) !important;
+  
+  /* Lavender & Green Accents */
+  --color-accent: #6a4ec7 !important;
+  --color-accent-light: #eef0ff !important;
+  --color-pastel-green: #dcfce7 !important;
+  --color-green-border: #bbf7d0 !important;
+  --color-dark-green-text: #166534 !important;
+  
+  --color-input-bg: #FFFFFF !important;
+
+  /* Typography */
+  --font-serif: 'Playfair Display', Georgia, serif !important;
+  --font-sans: 'Inter', sans-serif !important;
+  
+  --shadow-subtle: 0 4px 12px rgba(2, 7, 49, 0.04) !important;
+  --shadow-hover: 0 12px 24px rgba(2, 7, 49, 0.08) !important;
+  --radius: 16px !important;
+}
+
+/* Base resets */
+body, .app-shell, [class*="theme-"].app-shell {
+  background: var(--color-background) !important;
+  color: var(--color-text-primary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Typography Hierarchy */
+h1, .page-heading h1, .hero-title {
+  font-family: var(--font-serif) !important;
+  font-size: 36px !important;
+  font-weight: 700 !important;
+  color: var(--color-text-primary) !important;
+  line-height: 1.2 !important;
+}
+h2, .section-title {
+  font-family: var(--font-sans) !important;
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  color: var(--color-text-primary) !important;
+}
+h3, .card-head h2, .card-title {
+  font-family: var(--font-sans) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--color-text-primary) !important;
+}
+p, .card-padding {
+  font-family: var(--font-sans) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--color-text-secondary) !important;
+}
+.caption, small, .eyebrow, .card-bottom-note, label {
+  font-family: var(--font-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--color-muted) !important;
+}
+
+/* Sidebar (Teal Gradient) */
+.sidebar, [class*="theme-"] .sidebar {
+  background: linear-gradient(180deg, #3c9696 0%, #2e7a7a 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #FFFFFF !important;
+}
+.sidebar .nav-item.nav-active, .sidebar .nav-active, [class*="theme-"] .sidebar .nav-active {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #FFFFFF !important;
+  border-left: 3px solid #FFFFFF !important;
+}
+.sidebar .nav-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+.sidebar a, .sidebar button:not(.btn-primary) {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.sidebar .nav-section {
+  color: rgba(255, 255, 255, 0.6) !important;
+  text-transform: uppercase !important;
+}
+.sidebar .brand {
+  color: #FFFFFF !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Cards (White & Warm) */
+.card, [class*="theme-"] .card, .modal-content, [role="dialog"] > div, .dialog-content {
+  background: #FFFFFF !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow-subtle) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.card:hover, [class*="theme-"] .card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-hover) !important;
+  border-color: rgba(60, 150, 150, 0.3) !important;
+}
+
+/* Buttons */
+.btn-primary, [class*="theme-"] .btn-primary {
+  background-color: var(--color-primary) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(60, 150, 150, 0.25) !important;
+}
+.btn-primary:hover:not(:disabled), [class*="theme-"] .btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark) !important;
+  box-shadow: 0 6px 16px rgba(60, 150, 150, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Forms & Inputs */
+input, select, textarea {
+  background: #FFFFFF !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: 8px !important;
+  backdrop-filter: none !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(106, 78, 199, 0.15) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Tables & Rows */
+tbody tr:hover {
+  background: #F9F7F7 !important;
+}
+thead th {
+  background: #F9F7F7 !important;
+  color: var(--color-text-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+tr { border-bottom: 1px solid rgba(17, 24, 39, 0.05) !important; }
+
+/* Topbar */
+.topbar, [class*="theme-"] .topbar {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  backdrop-filter: none !important;
+}
+
+/* Badges (Pastel) */
+.badge-neutral { background: #f3f4f6 !important; color: #4b5563 !important; border: 1px solid #e5e7eb !important; }
+.badge-green { background: var(--color-pastel-green) !important; color: var(--color-dark-green-text) !important; border: 1px solid var(--color-green-border) !important; }
+.badge-amber { background: #fef3c7 !important; color: #92400e !important; border: 1px solid #fde68a !important; }
+.badge-red { background: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fecaca !important; }
+.badge-info { background: var(--color-accent-light) !important; color: var(--color-accent) !important; border: 1px solid #d8d4f5 !important; }
+
+/* Animations (Same premium SaaS animations) */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes premium-page-entrance {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-page, main > *, .tab-content > *, .page-content > *, .form-section, .form-group {
+  animation: premium-page-entrance 250ms ease-out both !important;
+}
+
+.sidebar { transition: width 250ms ease-out, background-color 250ms ease !important; }
+.sidebar .nav-item { transition: background-color 200ms ease, color 200ms ease !important; }
+.btn, button, input, select, textarea, .card, [class*="theme-"] .card, tr {
+  transition: all 200ms ease-out !important;
+}
+
+@keyframes premium-modal-entrance {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-content, [role="dialog"] > div, .dialog-content {
+  animation: premium-modal-entrance 220ms ease-out both !important;
+}
+
+
+
+/* ==========================================================================
+   ALABASTER WARM: EXACT TYPOGRAPHY SYSTEM
+   ========================================================================== */
+
+:root {
+  /* Font Families */
+  --font-editorial: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-editorial);
+
+  /* Type Scale */
+  --text-hero: 2.75rem; /* 44px */
+  --text-h2: 2.125rem; /* 34px */
+  --text-kpi: 2.25rem; /* 36px */
+  --text-h3: 1.1875rem; /* 19px */
+  --text-body: 0.875rem; /* 14px */
+  --text-meta: 0.75rem; /* 12px */
+  --text-micro: 0.6875rem; /* 11px */
+
+  /* Letter Spacing */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.08em;
+  --tracking-wider: 0.12em;
+}
+
+/* Master Typographic Mappings */
+body, .app-shell, [class*="theme-"].app-shell {
+  font-family: var(--font-sans) !important;
+}
+
+/* Display / Hero H1 */
+h1, .page-heading h1, .hero-title, .font-display {
+  font-family: var(--font-editorial) !important;
+  font-size: var(--text-hero) !important;
+  font-weight: 600 !important;
+  line-height: 1.15 !important;
+  letter-spacing: var(--tracking-tight) !important;
+}
+
+/* Page Heading / H2 */
+h2, .section-title {
+  font-family: var(--font-editorial) !important;
+  font-size: var(--text-h2) !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  letter-spacing: var(--tracking-tight) !important;
+}
+
+/* Primary KPI Data */
+.kpi-value, .stat-value {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-kpi) !important;
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  letter-spacing: -0.03em !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
+/* Card / Section H3 */
+h3, .card-head h2, .card-title {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-h3) !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+/* KPI Metric Labels & Eyebrow / Overline */
+.eyebrow-label, .eyebrow, .card-bottom-note, .caption, small {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-micro) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: var(--tracking-wider) !important;
+  line-height: 1.2 !important;
+}
+
+/* Body / Explanatory */
+p, .card-padding, .text-body {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-body) !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+}
+
+/* Interactive / Nav */
+.sidebar .nav-item, .tab, .tab-item, button, .btn, input, select {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-body) !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+/* Chips, Badges & Micro-meta */
+.badge, [class*="bg-"][class*="text-"] {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-meta) !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+.font-interface {
+  font-family: var(--font-sans) !important;
+}
+
+
+
+/* ==========================================================================
+   ALABASTER GLOSSY GLASSMORPHISM UPGRADE
+   ========================================================================== */
+
+/* 1. Pearl Mesh Background (Allows glass to refract beautifully) */
+body, .app-shell, [class*="theme-"].app-shell {
+  background: radial-gradient(circle at 0% 0%, #FFFFFF 0%, #F6EFEF 40%, #EBE1E1 100%) !important;
+  background-attachment: fixed !important;
+}
+
+/* 2. Frosted Glass Cards (Glossy & Blurry) */
+.card, [class*="theme-"] .card, .modal-content, [role="dialog"] > div, .dialog-content {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.35) 100%) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 8px 32px rgba(2, 7, 49, 0.04), inset 1px 1px 0 rgba(255, 255, 255, 0.8) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* 3. Enhanced Hover Physics for Glossy Cards */
+.card:hover, [class*="theme-"] .card:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.5) 100%) !important;
+  backdrop-filter: blur(32px) saturate(200%) !important;
+  box-shadow: 0 12px 40px rgba(2, 7, 49, 0.08), inset 1px 1px 0 rgba(255, 255, 255, 1) !important;
+  transform: translateY(-2px) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 4. Topbar Premium Glass */
+.topbar, [class*="theme-"] .topbar {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 20px rgba(2, 7, 49, 0.02) !important;
+}
+
+/* 5. Teal Sidebar Translucency (Frosted Deep Teal) */
+.sidebar, [class*="theme-"] .sidebar {
+  background: linear-gradient(180deg, rgba(60, 150, 150, 0.85) 0%, rgba(46, 122, 122, 0.95) 100%) !important;
+  backdrop-filter: blur(24px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 4px 0 24px rgba(2, 7, 49, 0.05) !important;
+}
+
+/* 6. Inputs & Forms (Subtle Frost) */
+input, select, textarea {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: inset 0 2px 4px rgba(2, 7, 49, 0.02) !important;
+}
+input:focus, select:focus, textarea:focus {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: var(--color-accent) !important;
+}
+
+/* 7. Table Headers (Translucent) */
+thead th {
+  background: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(8px) !important;
+}
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
 }

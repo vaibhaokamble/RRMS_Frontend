@@ -381,359 +381,98 @@ export function dashboard(s: State) {
   };
 }
 export function seed(): State {
-  const names = [
-    'Alex Morgan',
-    'Priya Sharma',
-    'James Wilson',
-    'Ananya Patel',
-    'Oliver Smith',
-    'Sofia Garcia',
-    'Arjun Mehta',
-    'Emma Thompson',
-    'Rohan Kapoor',
-    'Isabella Rossi',
-    'Liam Anderson',
-    'Neha Desai',
-    'Ethan Brooks',
-    'Maya Chen',
-    'Noah Williams',
-    'Zara Khan',
-    'Lucas Martin',
-    'Ava Johnson',
-    'Aditya Rao',
-    'Grace Lee',
+  const guests: Guest[] = [
+    { id: 'G1', name: 'Rahul Sharma', email: 'rahul@example.com', phone: '+91 9876543210', address: 'Mumbai, India', preferences: 'High floor, early check-in', document: 'Verified', points: 1500 },
+    { id: 'G2', name: 'Priya Patel', email: 'priya@example.com', phone: '+91 8765432109', address: 'Delhi, India', preferences: 'Vegetarian, extra pillows', document: 'Verified', points: 300 }
   ];
-  const guests: Guest[] = names.map((name, i) => ({
-    id: `G${i + 1}`,
-    name,
-    email: i === 0 ? 'guest@rrms.demo' : `${name.toLowerCase().replace(' ', '.')}@example.com`,
-    phone: `+91 98${String(76543000 + i)}`,
-    address: [
-      'Mumbai, Maharashtra, India',
-      'London, United Kingdom',
-      'Bengaluru, Karnataka, India',
-    ][i % 3],
-    preferences: [
-      'Vegetarian meals · High floor',
-      'Quiet room · Extra pillows',
-      'Ocean view · Early breakfast',
-    ][i % 3],
-    document: i < 12 ? 'Identity verified · Demo document' : '',
-    points: i === 0 ? 1250 : 200 + i * 70,
-  }));
-  const rooms: Room[] = Array.from({ length: 30 }, (_, i) => ({
-    id: `R${i + 1}`,
-    number: String(101 + Math.floor(i / 10) * 100 + (i % 10)),
-    type: ['Garden Deluxe', 'Ocean Suite', 'Pool Villa'][Math.floor(i / 10)],
-    floor: ['Garden wing', 'Ocean wing', 'Villa collection'][Math.floor(i / 10)],
-    rate: [6500, 10500, 16000][Math.floor(i / 10)],
-    capacity: i >= 20 ? 4 : 2,
-    status:
-      i < 12
-        ? 'Occupied'
-        : i >= 28
-          ? 'Maintenance'
-          : i >= 25
-            ? 'Dirty'
-            : i === 24
-              ? 'Inspection'
-              : 'Ready',
-  }));
-  const reservations: Reservation[] = Array.from({ length: 25 }, (_, i) => {
-    const active = i < 12;
-    const confirmed = i >= 12 && i < 18;
-    const completed = i >= 18 && i < 23;
-    return {
-      id: `RES-${2401 + i}`,
-      guestId: `G${i === 18 ? 1 : (i % 20) + 1}`,
-      roomId: `R${i < 18 ? i + 1 : 20 + (i - 18)}`,
-      checkIn: dateOffset(
-        active ? -2 - (i % 3) : confirmed ? (i < 15 ? 0 : 2) : -16 + (i - 18) * 2,
-      ),
-      checkOut: dateOffset(
-        active ? (i < 3 ? 0 : 2 + (i % 3)) : confirmed ? (i < 15 ? 3 : 5) : -13 + (i - 18) * 2,
-      ),
-      status: active
-        ? 'Checked in'
-        : confirmed
-          ? 'Confirmed'
-          : completed
-            ? 'Completed'
-            : 'Cancelled',
-      rate: rooms[i < 18 ? i : 19 + (i - 18)].rate,
-      discount: i % 6 === 0 ? 500 : 0,
-      taxRate: 12,
-      source: ['Direct', 'Phone', 'Walk-in', 'Travel partner'][i % 4],
-      adults: 2,
-      notes: i % 4 === 0 ? 'Anniversary stay. A warm welcome, please.' : '',
-      created: dateOffset(-24 + (i % 6)),
-      history: [{ date: dateOffset(-24 + (i % 6)), text: 'Reservation confirmed by reception' }],
-    };
-  });
-  const staffNames = [
-    'Sarah Williams',
-    'Meera Nair',
-    'David Chen',
-    'Raj Kumar',
-    'Elena Davis',
-    'Leo Fernandes',
-    'Aisha Ali',
-    'Daniel Park',
-    'Kavita Rao',
-    'Marcus Reed',
-    'Isha Shah',
-    'Vikram Singh',
-    'Nina Costa',
-    'Ben Taylor',
+
+  const rooms: Room[] = [
+    { id: 'R1', number: '101', type: 'Garden Deluxe', floor: 'Ground', rate: 5000, capacity: 2, status: 'Occupied' },
+    { id: 'R2', number: '102', type: 'Garden Deluxe', floor: 'Ground', rate: 5000, capacity: 2, status: 'Dirty' },
+    { id: 'R3', number: '201', type: 'Ocean Suite', floor: 'First', rate: 8500, capacity: 3, status: 'Ready' },
+    { id: 'R4', number: '202', type: 'Ocean Suite', floor: 'First', rate: 8500, capacity: 3, status: 'Maintenance' },
+    { id: 'R5', number: '301', type: 'Pool Villa', floor: 'Villa', rate: 15000, capacity: 4, status: 'Ready' }
   ];
-  const staff: Account[] = staffNames.map((name, i) => ({
-    id: `A${i + 1}`,
-    name,
-    email:
-      `${roles[i % 7].toLowerCase().replace('&', 'and')} ${i < 7 ? '' : '2'}`.replaceAll(' ', '') +
-      '@rrms.demo',
-    password: 'Resort@123',
-    module: 'Staff',
-    role: roles[i % 7],
-    active: true,
-    shift: i < 7 ? '07:00 – 15:00' : '15:00 – 23:00',
-  }));
+
+  const reservations: Reservation[] = [
+    {
+      id: 'RES-1001', guestId: 'G1', roomId: 'R1',
+      checkIn: dateOffset(-1), checkOut: dateOffset(2),
+      status: 'Checked in', rate: 5000, discount: 0, taxRate: 12,
+      source: 'Direct', adults: 2, notes: 'Anniversary trip',
+      created: dateOffset(-10), history: [{ date: dateOffset(-10), text: 'Booked directly' }]
+    },
+    {
+      id: 'RES-1002', guestId: 'G2', roomId: 'R3',
+      checkIn: dateOffset(1), checkOut: dateOffset(4),
+      status: 'Confirmed', rate: 8500, discount: 500, taxRate: 12,
+      source: 'Booking.com', adults: 2, notes: 'Late arrival expected',
+      created: dateOffset(-5), history: [{ date: dateOffset(-5), text: 'Booking confirmed via OTA' }]
+    }
+  ];
+
   const accounts: Account[] = [
-    {
-      id: 'manager',
-      name: 'Ananya Kapoor',
-      email: 'management@rrms.demo',
-      password: 'Resort@123',
-      module: 'Management',
-      role: 'Management',
-      active: true,
-      shift: '09:00 – 18:00',
-    },
-    {
-      id: 'owner',
-      name: 'Vikram Oberoi',
-      email: 'owner@rrms.demo',
-      password: 'Resort@123',
-      module: 'Owner',
-      role: 'Owner',
-      active: true,
-      shift: '',
-    },
-    ...staff,
-    ...guests.map((g) => ({
-      id: `account-${g.id}`,
-      name: g.name,
-      email: g.email,
-      password: 'Resort@123',
-      module: 'Guest' as Module,
-      role: 'Guest' as Role,
-      active: true,
-      guestId: g.id,
-      shift: '',
-    })),
+    { id: 'admin', name: 'Vikram Oberoi', email: 'admin@demo.com', password: 'password', module: 'Owner', role: 'Owner', active: true, shift: '' },
+    { id: 'manager', name: 'Ananya Kapoor', email: 'manager@demo.com', password: 'password', module: 'Management', role: 'Management', active: true, shift: '09:00 - 18:00' },
+    { id: 'staff1', name: 'Neha Desai', email: 'reception@demo.com', password: 'password', module: 'Staff', role: 'Receptionist', active: true, shift: '07:00 - 15:00' },
+    { id: 'staff2', name: 'Rohan Kumar', email: 'housekeeping@demo.com', password: 'password', module: 'Staff', role: 'Housekeeping', active: true, shift: '09:00 - 17:00' },
+    { id: 'staff3', name: 'Amit Singh', email: 'maintenance@demo.com', password: 'password', module: 'Staff', role: 'Maintenance', active: true, shift: '09:00 - 17:00' },
+    { id: 'account-G1', name: 'Rahul Sharma', email: 'rahul@example.com', password: 'password', module: 'Guest', role: 'Guest', active: true, guestId: 'G1', shift: '' },
+    { id: 'account-G2', name: 'Priya Patel', email: 'priya@example.com', password: 'password', module: 'Guest', role: 'Guest', active: true, guestId: 'G2', shift: '' }
   ];
-  const tasks: Task[] = Array.from({ length: 14 }, (_, i) => ({
-    id: `T${i + 1}`,
-    title: [
-      'Prepare room for next arrival',
-      'Inspect air conditioning',
-      'Refresh the poolside garden',
-      'Restock guest amenities',
-      'Clean and sanitize room',
-      'Check balcony lighting',
-      'Welcome arrival guests',
-    ][i % 7],
-    role:
-      i === 0 || i === 4 || i === 7 || i === 11
-        ? 'Housekeeping'
-        : i === 1 || i === 5 || i === 8 || i === 12
-          ? 'Maintenance'
-          : i % 7 === 2
-            ? 'Gardener'
-            : 'Receptionist',
-    roomId: i === 0 ? 'R25' : i === 1 ? 'R29' : `R${26 + (i % 3)}`,
-    assignee: '',
-    priority: i % 4 === 0 ? 'High' : i % 3 === 0 ? 'Low' : 'Medium',
-    deadline: today() + 'T' + (10 + (i % 8)) + ':00',
-    status: i === 0 ? 'Inspection' : i === 1 ? 'In progress' : i >= 10 ? 'Completed' : 'Pending',
-    notes: '',
-    kind:
-      i === 0 || i === 4 || i === 7 || i === 11
-        ? 'Cleaning'
-        : i === 1 || i === 5 || i === 8 || i === 12
-          ? 'Maintenance'
-          : i % 7 === 2
-            ? 'Property'
-            : 'General',
-  }));
-  tasks[4].roomId = 'R26';
-  tasks[7].roomId = 'R27';
-  tasks[5].roomId = 'R30';
-  tasks[8].roomId = 'R28';
-  tasks[8].title = 'Clean and sanitize room';
-  tasks[8].kind = 'Cleaning';
-  tasks[8].role = 'Housekeeping';
-  tasks[11].roomId = 'R24';
-  tasks[12].roomId = 'R23';
-  tasks.forEach((t) => (t.assignee = staff.find((a) => a.role === t.role)!.id));
-  const services: Service[] = Array.from({ length: 10 }, (_, i) => {
-    const m = serviceMenu[i % 5];
-    return {
-      id: `S${i + 1}`,
-      reservationId: reservations[i % 8].id,
-      name: m.name,
-      category: m.category,
-      amount: m.amount,
-      date: today(),
-      time: `${10 + i}:00`,
-      options: ['For two guests', 'No special requests', 'Vegetarian preference'][i % 3],
-      status: i < 3 ? 'Requested' : i < 6 ? 'In progress' : 'Completed',
-      assignee: staff.find((a) => a.role === m.role)!.id,
-    };
-  });
+
+  const tasks: Task[] = [
+    { id: 'T1', title: 'Clean room 102', role: 'Housekeeping', roomId: 'R2', assignee: 'staff2', priority: 'High', deadline: today() + 'T12:00', status: 'Pending', notes: 'Guest checked out early', kind: 'Cleaning' },
+    { id: 'T2', title: 'Fix AC in 202', role: 'Maintenance', roomId: 'R4', assignee: 'staff3', priority: 'Medium', deadline: today() + 'T16:00', status: 'In progress', notes: 'AC not cooling', kind: 'Maintenance' },
+    { id: 'T3', title: 'Prepare welcome kit for 201', role: 'Receptionist', roomId: 'R3', assignee: 'staff1', priority: 'Low', deadline: dateOffset(1) + 'T12:00', status: 'Pending', notes: '', kind: 'General' }
+  ];
+
+  const services: Service[] = [
+    { id: 'S1', reservationId: 'RES-1001', name: 'In-room dining', category: 'Food & Beverage', amount: 1200, date: today(), time: '19:30', options: 'Vegetarian preference', status: 'Requested', assignee: '' }
+  ];
+
+  const payments: Payment[] = [
+    { id: 'PAY-1', reservationId: 'RES-1001', amount: 5000, type: 'Payment', method: 'Card', date: dateOffset(-1), note: 'Advance deposit' }
+  ];
+
+  const complaints: Complaint[] = [
+    { id: 'C1', guestId: 'G1', subject: 'Slow Wi-Fi', description: 'The internet is very slow in room 101.', category: 'IT Support', status: 'Open', response: '', assignee: 'staff3', date: today() }
+  ];
+
   const state: State = {
-    version: 1,
+    version: 3,
     rooms,
     guests,
     reservations,
     accounts,
     tasks,
     services,
-    payments: [],
-    complaints: [
-      {
-        id: 'C1',
-        guestId: 'G4',
-        subject: 'Air conditioning needs attention',
-        description: 'The room is not cooling evenly. Please arrange an inspection.',
-        category: 'Maintenance',
-        status: 'Open',
-        response: '',
-        assignee: 'A4',
-        date: today(),
-      },
-      {
-        id: 'C2',
-        guestId: 'G1',
-        subject: 'Extra pillows, please',
-        description: 'Could we have two extra pillows this evening?',
-        category: 'Request',
-        status: 'In progress',
-        response: 'Housekeeping will deliver these shortly.',
-        assignee: 'A2',
-        date: today(),
-      },
-      {
-        id: 'C3',
-        guestId: 'G8',
-        subject: 'Breakfast dietary request',
-        description: 'Please confirm gluten-free options.',
-        category: 'Food & Beverage',
-        status: 'Resolved',
-        response: 'Our chef has arranged a dedicated breakfast selection.',
-        assignee: 'A6',
-        date: dateOffset(-1),
-      },
-    ],
+    payments,
+    complaints,
     changes: [],
-    approvals: [
-      { id: 'APP-1', type: 'Refund', requestedBy: 'A1', date: dateOffset(-1), status: 'Pending', details: 'Guest requested refund for unused spa session.', amount: 2800 },
-      { id: 'APP-2', type: 'Discount', requestedBy: 'manager', date: today(), status: 'Pending', details: '10% discount for complaining guest in R25.', amount: 1500 },
-      { id: 'APP-3', type: 'Expense', requestedBy: 'A4', date: dateOffset(-2), status: 'Approved', details: 'Emergency AC repair parts.', amount: 4500 },
-      { id: 'APP-4', type: 'Price override', requestedBy: 'manager', date: today(), status: 'Pending', details: 'Override room rate for VIP guest.' }
-    ],
+    approvals: [],
     reviews: [
-      {
-        id: 'V1',
-        reservationId: 'RES-2420',
-        guestId: 'G20',
-        rating: 5,
-        roomRating: 5,
-        serviceRating: 4,
-        text: 'Beautiful gardens and wonderfully attentive staff. We will be back.',
-        date: dateOffset(-4),
-      },
+      { id: 'V1', reservationId: 'RES-1001', guestId: 'G1', rating: 5, roomRating: 5, serviceRating: 5, text: 'Great stay so far!', date: today() }
     ],
-    notifications: [
-      {
-        id: 'N1',
-        title: 'A fresh start to a wonderful day',
-        message: 'Your resort workspace is up to date. Three arrivals are expected today.',
-        date: new Date().toISOString(),
-        audience: 'all',
-        readBy: [],
-      },
-      {
-        id: 'N2',
-        title: 'A little time for yourself',
-        message: 'Discover a restorative treatment at the Palm Spa during your stay.',
-        date: new Date().toISOString(),
-        audience: 'G1',
-        readBy: [],
-      },
-    ],
+    notifications: [],
     audit: [
-      {
-        id: 'L1',
-        date: new Date().toISOString(),
-        actor: 'System',
-        role: 'Owner',
-        action: 'Demo initialized',
-        detail: 'Linked resort records created',
-      },
+      { id: 'L1', date: new Date().toISOString(), actor: 'System', role: 'Owner', action: 'Static demo data loaded', detail: 'Clean reset' }
     ],
-    expenses: Array.from({ length: 12 }, (_, i) => ({
-      id: `E${i}`,
-      name: ['Housekeeping supplies', 'Team payroll', 'Fresh produce', 'Property care'][i % 4],
-      category: ['Operations', 'Payroll', 'F&B', 'Maintenance'][i % 4],
-      amount: [3200, 18500, 7600, 4800][i % 4],
-      date: dateOffset(-i * 2),
-    })),
-    promotions: [
-      {
-        id: 'P1',
-        name: 'A little longer in paradise',
-        code: 'STAYLONG',
-        discount: 10,
-        start: dateOffset(-10),
-        end: dateOffset(30),
-        active: true,
-        kind: 'Package',
-      },
-      {
-        id: 'P2',
-        name: 'Monsoon moments',
-        code: 'MONSOON',
-        discount: 15,
-        start: dateOffset(-5),
-        end: dateOffset(20),
-        active: true,
-        kind: 'Seasonal pricing',
-      },
+    expenses: [
+      { id: 'E1', name: 'AC Repair Parts', category: 'Maintenance', amount: 1200, date: today() }
     ],
-    loyalty: guests.map((g) => ({
-      id: `LP-${g.id}`,
-      guestId: g.id,
-      date: dateOffset(-20),
-      amount: g.points,
-      description: 'Previous stays · Opening balance',
-    })),
-    found: [
-      {
-        id: 'F1',
-        title: 'Silver reading glasses',
-        roomId: 'R26',
-        date: today(),
-        status: 'Stored at reception',
-      },
+    promotions: [],
+    loyalty: [
+      { id: 'LP-G1', guestId: 'G1', date: dateOffset(-1), amount: 1500, description: 'Sign-up bonus' }
     ],
+    found: [],
     policies: {
       resortName: 'The Palm Resort',
-      location: 'Candolim, Goa · India',
-      email: 'hello@thepalmresort.example',
-      phone: '+91 832 555 0142',
+      location: 'Goa, India',
+      email: 'contact@palmresort.demo',
+      phone: '+91 800-123-4567',
       currency: 'INR',
-      description: 'A slower pace. A warmer welcome. Your coastal sanctuary in Goa.',
+      description: 'A beautiful luxury retreat.',
       tax: 12,
       checkIn: '14:00',
       checkOut: '11:00',
@@ -743,24 +482,10 @@ export function seed(): State {
       emailEnabled: true,
       smsEnabled: false,
       notifications: true,
-      minPassword: 8,
+      minPassword: 6,
     },
     permissions: {
-      Management: [
-        'reservations',
-        'rooms',
-        'guests',
-        'tasks',
-        'services',
-        'billing',
-        'refunds',
-        'reports',
-        'settings',
-        'team',
-        'support',
-        'promotions',
-        'approvals',
-      ],
+      Management: ['reservations', 'rooms', 'guests', 'tasks', 'services', 'billing', 'refunds', 'reports', 'settings', 'team', 'support', 'promotions', 'approvals'],
       Guest: ['services', 'billing', 'support'],
       Receptionist: ['reservations', 'rooms', 'guests', 'tasks', 'support'],
       Housekeeping: ['tasks', 'services', 'support'],
@@ -771,19 +496,6 @@ export function seed(): State {
       Spa: ['services', 'tasks', 'support'],
     },
   };
-  reservations.forEach((r, i) => {
-    if (r.status === 'Cancelled') return;
-    const total = folio(state, r).total;
-    state.payments.push({
-      id: `PAY-${301 + i}`,
-      reservationId: r.id,
-      amount: r.status === 'Completed' ? total : Math.round(total * 0.4),
-      type: 'Payment',
-      method: i % 2 ? 'Bank transfer' : 'Card',
-      date: r.status === 'Completed' ? r.checkOut : dateOffset(-i % 7),
-      note: r.status === 'Completed' ? 'Stay settled' : 'Advance received outside RRMS',
-    });
-  });
   return state;
 }
 
