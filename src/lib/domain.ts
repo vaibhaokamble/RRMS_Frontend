@@ -1,3 +1,5 @@
+import { applyPropertyCommand, initialAmenities, roomStatus } from './property';
+import type { Amenity, AmenityUsage } from './property';
 export type Module = 'Guest' | 'Management' | 'Staff' | 'Owner';
 export const roles = [
   'Receptionist',
@@ -13,6 +15,7 @@ export type Role = Module | StaffRole;
 export type Permission =
   | 'reservations'
   | 'rooms'
+  | 'amenities'
   | 'guests'
   | 'tasks'
   | 'services'
@@ -26,6 +29,7 @@ export type Permission =
 export const permissions: Permission[] = [
   'reservations',
   'rooms',
+  'amenities',
   'guests',
   'tasks',
   'services',
@@ -37,7 +41,7 @@ export const permissions: Permission[] = [
   'support',
   'promotions',
 ];
-export type RoomStatus = 'Ready' | 'Occupied' | 'Dirty' | 'Inspection' | 'Maintenance';
+export type RoomStatus = 'Ready' | 'Occupied' | 'Dirty' | 'Inspection' | 'Maintenance' | 'Out of Service';
 export type ReservationStatus = 'Confirmed' | 'Checked in' | 'Completed' | 'Cancelled' | 'No-show';
 export interface Room {
   id: string;
@@ -47,6 +51,13 @@ export interface Room {
   rate: number;
   capacity: number;
   status: RoomStatus;
+  name?: string;
+  bedType?: string;
+  beds?: number;
+  description?: string;
+  images?: string[];
+  amenityIds?: string[];
+  active?: boolean;
 }
 export interface Guest {
   id: string;
@@ -108,7 +119,7 @@ export interface Task {
   deadline: string;
   status: 'Pending' | 'In progress' | 'Inspection' | 'Completed';
   notes: string;
-  kind: 'Cleaning' | 'Maintenance' | 'Property' | 'General';
+  kind: 'Cleaning' | 'Maintenance' | 'Property' | 'General' | 'Receptionist' | 'Housekeeping' | 'Cashier' | 'Gardener' | 'F&B' | 'Spa';
 }
 export interface Payment {
   id: string;
@@ -201,6 +212,12 @@ export interface Policy {
 export interface State {
   version: number;
   rooms: Room[];
+  roomTypes?: string[];
+  archivedRooms?: Room[];
+  amenities: Amenity[];
+  amenityCategories?: string[];
+  amenityUsage: AmenityUsage[];
+  ownerPropertyAdmin: boolean;
   guests: Guest[];
   reservations: Reservation[];
   accounts: Account[];
@@ -219,6 +236,9 @@ export interface State {
   policies: Policy;
   permissions: Record<string, Permission[]>;
 }
+// Historical references remain readable after a room leaves the active inventory.
+export const findRoom = (s: State, id: string | undefined) =>
+  s.rooms.find(r => r.id === id) ?? s.archivedRooms?.find(r => r.id === id);
 export const today = () => dateOffset(0);
 export function dateOffset(n: number, base = new Date()) {
   const d = new Date(base);
@@ -249,44 +269,133 @@ export const initials = (s: string) =>
     .join('');
 export const live = (r: Reservation) => ['Confirmed', 'Checked in'].includes(r.status);
 export const serviceMenu = [
+  // Spa & Wellness
   {
     name: 'Balinese massage',
     category: 'Spa',
     role: 'Spa',
     amount: 2800,
-    description: '60 minutes of complete relaxation',
+    description: '60 minutes of complete relaxation and aromatic oils',
     icon: 'spa',
   },
+  {
+    name: 'Ayurvedic Healing Therapy',
+    category: 'Spa',
+    role: 'Spa',
+    amount: 3500,
+    description: 'Traditional herbal oil detox and tension relief',
+    icon: 'spa',
+  },
+  {
+    name: 'Botanical Glow Facial',
+    category: 'Spa',
+    role: 'Spa',
+    amount: 2200,
+    description: 'Deep cleansing botanical skincare ritual',
+    icon: 'spa',
+  },
+
+  // Housekeeping & Laundry
   {
     name: 'Fresh & folded',
     category: 'Laundry',
     role: 'Housekeeping',
     amount: 450,
-    description: 'Thoughtful care for your wardrobe',
+    description: 'Thoughtful wash, iron, and wardrobe care',
     icon: 'laundry',
   },
+  {
+    name: 'Extra Linens & Plush Towels',
+    category: 'Laundry',
+    role: 'Housekeeping',
+    amount: 350,
+    description: 'Fresh organic cotton sheets and plush bath towels',
+    icon: 'laundry',
+  },
+  {
+    name: 'Evening Turndown Service',
+    category: 'Laundry',
+    role: 'Housekeeping',
+    amount: 500,
+    description: 'Aromatherapy pillow mist and turn-down preparation',
+    icon: 'laundry',
+  },
+
+  // Food & Beverage
   {
     name: 'In-room dining',
     category: 'Food & Beverage',
     role: 'F&B',
     amount: 1200,
-    description: 'Fresh coastal flavors, at your door',
+    description: 'Fresh coastal gourmet flavors delivered to your door',
     icon: 'food',
   },
+  {
+    name: 'Floating Poolside Breakfast',
+    category: 'Food & Beverage',
+    role: 'F&B',
+    amount: 2400,
+    description: 'Artisanal morning breakfast basket for two',
+    icon: 'food',
+  },
+  {
+    name: 'Minibar & Refreshment Refill',
+    category: 'Food & Beverage',
+    role: 'F&B',
+    amount: 850,
+    description: 'Premium beverage and snack restocking',
+    icon: 'food',
+  },
+
+  // Gardener & Outdoor Activities
   {
     name: 'Sunset kayaking',
     category: 'Activities',
     role: 'Gardener',
     amount: 900,
-    description: 'A little adventure on the water',
+    description: 'Guided paddle adventure on the palm lagoon',
     icon: 'activity',
   },
+  {
+    name: 'Tropical Botanical Garden Tour',
+    category: 'Activities',
+    role: 'Gardener',
+    amount: 600,
+    description: 'Guided tour of exotic flora and spice plants',
+    icon: 'activity',
+  },
+  {
+    name: 'Beach Volleyball & Gear Setup',
+    category: 'Activities',
+    role: 'Gardener',
+    amount: 400,
+    description: 'Court preparation and beach recreation equipment',
+    icon: 'activity',
+  },
+
+  // Receptionist & Concierge
   {
     name: 'Airport transfer',
     category: 'Other',
     role: 'Receptionist',
     amount: 1500,
-    description: 'A seamless start to your journey',
+    description: 'Chauffeured luxury private vehicle transfer',
+    icon: 'car',
+  },
+  {
+    name: 'Resort Buggy Shuttle',
+    category: 'Other',
+    role: 'Receptionist',
+    amount: 300,
+    description: 'Private electric buggy transport across resort grounds',
+    icon: 'car',
+  },
+  {
+    name: 'Late Checkout Privilege',
+    category: 'Other',
+    role: 'Receptionist',
+    amount: 1800,
+    description: 'Extended room access and checkout until 4:00 PM',
     icon: 'car',
   },
 ] as const;
@@ -297,7 +406,13 @@ export function folio(s: State, r: Reservation) {
   const room = ['Cancelled', 'No-show'].includes(r.status)
     ? 0
     : nights(r.checkIn, r.checkOut) * r.rate;
-  const services = s.services.filter((x) => x.reservationId === r.id && x.status === 'Completed');
+  const services: Service[] = [
+    ...s.services.filter((x) => x.reservationId === r.id && x.status === 'Completed'),
+    ...(s.amenityUsage ?? []).filter((x) => x.reservationId === r.id).map((x) => ({
+      id: x.id, reservationId: r.id, name: x.name, category: 'Amenities', amount: x.amount,
+      date: x.date.slice(0, 10), time: x.date.slice(11, 16), options: 'Amenity visit', status: 'Completed' as const, assignee: '',
+    })),
+  ];
   const extras = services.reduce((n, x) => n + x.amount, 0);
   const discount = Math.min(room, r.discount);
   const subtotal = room - discount + extras;
@@ -312,7 +427,8 @@ export function available(s: State, roomId: string, start: string, end: string, 
   const room = s.rooms.find((x) => x.id === roomId);
   return (
     !!room &&
-    room.status !== 'Maintenance' &&
+    room.active !== false &&
+    !['Maintenance', 'Out of Service', 'Dirty', 'Inspection'].includes(room.status) &&
     !s.reservations.some(
       (r) =>
         r.id !== exclude && r.roomId === roomId && live(r) && r.checkIn < end && r.checkOut > start,
@@ -324,9 +440,9 @@ export function dashboard(s: State) {
   const revenue = s.payments.reduce((n, p) => n + (p.type === 'Refund' ? -p.amount : p.amount), 0);
   return {
     occupied,
-    occupancy: Math.round((occupied / s.rooms.length) * 100),
+    occupancy: Math.round((occupied / Math.max(1, s.rooms.filter(r => r.active !== false).length)) * 100),
     revenue,
-    available: s.rooms.filter((r) => r.status === 'Ready').length,
+    available: s.rooms.filter((r) => roomStatus(s, r) === 'Available').length,
     arrivals: s.reservations.filter((r) => r.checkIn === today() && r.status === 'Confirmed')
       .length,
     departures: s.reservations.filter((r) => r.checkOut === today() && r.status === 'Checked in')
@@ -551,6 +667,9 @@ export function seed(): State {
   const state: State = {
     version: 1,
     rooms,
+    amenities: initialAmenities(),
+    amenityUsage: [],
+    ownerPropertyAdmin: true,
     guests,
     reservations,
     accounts,
@@ -697,6 +816,7 @@ export function seed(): State {
     },
     permissions: {
       Management: [
+        'amenities',
         'reservations',
         'rooms',
         'guests',
@@ -710,7 +830,7 @@ export function seed(): State {
         'support',
         'promotions',
       ],
-      Guest: ['services', 'billing', 'support'],
+      Guest: ['services', 'billing', 'support', 'amenities'],
       Receptionist: ['reservations', 'rooms', 'guests', 'tasks', 'support'],
       Housekeeping: ['tasks', 'services', 'support'],
       Cashier: ['billing', 'support'],
@@ -886,7 +1006,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
           'Check-in is available only during the reserved dates.',
         );
         assert(
-          room.status === 'Ready',
+          room.status === 'Ready' && room.active !== false,
           'The room must be cleaned and inspection-approved before check-in.',
         );
         assert(
@@ -946,7 +1066,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         );
       assert(
         available(s, roomId, start, end, r.id),
-        'These dates overlap another booking or the room is out of service.',
+        'These dates overlap another booking or the room is out of service; transfers require an inspection-approved room.',
       );
       const room = s.rooms.find((x) => x.id === roomId)!;
       assert(r.adults <= room.capacity, 'The new room does not accommodate this guest party.');
@@ -1037,7 +1157,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     case 'service.create': {
-      requirePermission('services');
+      assert(can(s, a, 'services') || can(s, a, 'billing'), 'Your role does not have permission for this action.');
       const r = reservation(p.reservationId);
       assert(live(r), 'Services require a confirmed or active stay.');
       const item = serviceMenu.find((x) => x.name === p.name);
@@ -1090,9 +1210,12 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       const service = s.services.find((x) => x.id === p.id);
       assert(service, 'Service not found.');
       assert(
-        a.module !== 'Staff' || service.assignee === a.id,
+        a.module !== 'Staff' || !service.assignee || service.assignee === a.id,
         'Only the assigned staff member can process this service.',
       );
+      if (!service.assignee && a.module === 'Staff') {
+        service.assignee = a.id;
+      }
       assert(live(reservation(service.reservationId)), 'This stay is no longer active.');
       if (p.assignee !== undefined) {
         assert(a.module !== 'Staff', 'Only management can reassign services.');
@@ -1198,9 +1321,12 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       const t = s.tasks.find((x) => x.id === p.id);
       assert(t, 'Task not found.');
       assert(
-        a.module !== 'Staff' || t.assignee === a.id,
+        a.module !== 'Staff' || !t.assignee || t.assignee === a.id,
         'Only the assigned staff member can update this task.',
       );
+      if (!t.assignee && a.module === 'Staff') {
+        t.assignee = a.id;
+      }
       if (p.assignee !== undefined) {
         assert(a.module !== 'Staff', 'Only management can reassign tasks.');
         assert(
@@ -1361,9 +1487,12 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       const c = s.complaints.find((x) => x.id === p.id);
       assert(c, 'Request not found.');
       assert(
-        a.module !== 'Staff' || c.assignee === a.id,
+        a.module !== 'Staff' || c.assignee === a.id || !c.assignee || a.role === 'Receptionist',
         'Only the assigned staff member can resolve this request.',
       );
+      if (!c.assignee && a.module === 'Staff') {
+        c.assignee = a.id;
+      }
       if (p.assignee !== undefined) {
         assert(a.module !== 'Staff', 'Only management can assign support requests.');
         assert(
@@ -1386,7 +1515,11 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     case 'review.create': {
       assert(a.module === 'Guest', 'Only guests can review their stays.');
       const r = reservation(p.reservationId);
-      assert(r.status === 'Completed', 'Reviews unlock after check-out.');
+      assert(
+        ['Completed', 'Checked in'].includes(r.status),
+        'Reviews unlock during or after your stay.',
+      );
+
       assert(
         !s.reviews.some((x) => x.reservationId === r.id),
         'You have already reviewed this stay.',
@@ -1406,6 +1539,22 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         text: clean(p.text, 'Feedback'),
         date: now,
       });
+      break;
+    }
+    case 'review.update': {
+      assert(a.module === 'Guest', 'Only guests can update their reviews.');
+      const review = s.reviews.find((x) => x.id === p.id);
+      assert(review, 'Review not found.');
+      assert(review.guestId === a.guestId, 'You can only update your own review.');
+      for (const k of ['rating', 'roomRating', 'serviceRating'])
+        assert(
+          Number.isInteger(Number(p[k])) && p[k] >= 1 && p[k] <= 5,
+          'Ratings must be between 1 and 5.',
+        );
+      review.rating = Number(p.rating);
+      review.roomRating = Number(p.roomRating);
+      review.serviceRating = Number(p.serviceRating);
+      review.text = clean(p.text, 'Feedback');
       break;
     }
     case 'loyalty.redeem': {
@@ -1443,16 +1592,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     case 'room.update': {
-      requirePermission('rooms');
-      assert(a.module !== 'Staff', 'Room pricing is managed by management.');
-      const r = s.rooms.find((x) => x.id === p.id);
-      assert(r, 'Room not found.');
-      assert(
-        Number.isFinite(Number(p.rate)) && Number(p.rate) > 0,
-        'Nightly rate must be a positive finite amount.',
-      );
-      r.rate = Number(p.rate);
-      if (p.type) r.type = clean(p.type, 'Room type');
+      applyPropertyCommand(s, a, command);
       break;
     }
     case 'account.create': {
@@ -1585,6 +1725,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     }
     case 'found.create': {
       requirePermission('tasks');
+      assert(a.module !== 'Staff' || ['Receptionist', 'Housekeeping'].includes(a.role), 'Lost and found is handled by reception and housekeeping.');
       assert(
         s.rooms.some((r) => r.id === p.roomId),
         'Choose a room.',
@@ -1600,6 +1741,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     }
     case 'found.return': {
       requirePermission('tasks');
+      assert(a.module !== 'Staff' || ['Receptionist', 'Housekeeping'].includes(a.role), 'Lost and found is handled by reception and housekeeping.');
       const item = s.found.find((x) => x.id === p.id);
       assert(item && item.status !== 'Returned to guest', 'Item already returned or missing.');
       item.status = 'Returned to guest';
@@ -1623,7 +1765,7 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       break;
     }
     default:
-      throw new Error('Unknown action.');
+      if (!applyPropertyCommand(s, a, command)) throw new Error('Unknown action.');
   }
   s.audit.unshift({
     id: uid('LOG'),

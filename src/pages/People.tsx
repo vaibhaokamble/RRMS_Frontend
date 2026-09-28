@@ -1,5 +1,6 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users,
   ArrowUpRight,
@@ -19,7 +20,7 @@ import {
 import { toast } from 'sonner';
 import { useStore } from '../lib/store';
 import { money, shortDate, today, roles, can } from '../lib/domain';
-import type { Guest, Account, Complaint } from '../lib/domain';
+import type { Guest, Account, Complaint, Review } from '../lib/domain';
 import {
   PageTitle,
   Card,
@@ -141,7 +142,7 @@ export function Guests() {
                   <div key={r.id}>
                     <span>
                       <strong>
-                        {r.id} · Room {s.rooms.find((x) => x.id === r.roomId)?.number}
+                        {r.id} · Room {findRoom(s, r.roomId)?.number}
                       </strong>
                       <small>
                         {shortDate(r.checkIn)} – {shortDate(r.checkOut)}
@@ -256,15 +257,24 @@ function ProfileEditor({ guest }: { guest: Guest }) {
 }
 export function Support() {
   const { s, actor, act } = useStore();
+  const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState('All'),
-    [create, setCreate] = useState(false),
+    [create, setCreate] = useState(params.has('new')),
     [selected, setSelected] = useState<Complaint | null>(null);
   const guest = actor!.module === 'Guest',
     staff = actor!.module === 'Staff';
   const list = s.complaints.filter(
     (c) =>
       (!guest || c.guestId === actor!.guestId) &&
-      (!staff || c.assignee === actor!.id) &&
+      (!staff ||
+        c.assignee === actor!.id ||
+        !c.assignee ||
+        actor!.role === 'Receptionist' ||
+        (actor!.role === 'Housekeeping' && c.category === 'Housekeeping') ||
+        (actor!.role === 'Maintenance' && c.category === 'Maintenance') ||
+        (actor!.role === 'F&B' && (c.category === 'Food & Beverage' || c.category === 'Dining')) ||
+        (actor!.role === 'Spa' && c.category === 'Spa') ||
+        (actor!.role === 'Gardener' && c.category === 'Property care')) &&
       (tab === 'All' || c.status === tab),
   );
   return (
@@ -278,12 +288,10 @@ export function Support() {
             : 'Listen, respond, and turn every request into a better stay.'
         }
         actions={
-          !staff ? (
-            <Button onClick={() => setCreate(true)}>
-              <Plus size={16} />
-              {guest ? 'How can we help?' : 'New guest request'}
-            </Button>
-          ) : undefined
+          <Button onClick={() => setCreate(true)}>
+            <Plus size={16} />
+            {guest ? 'How can we help?' : 'New guest request'}
+          </Button>
         }
       />
       {guest && (
@@ -399,9 +407,20 @@ export function Support() {
               label: 'Category',
               type: 'select',
               required: true,
-              options: ['Request', 'Complaint', 'Maintenance', 'Food & Beverage', 'Other'].map(
-                (x) => ({ value: x, label: x }),
-              ),
+              options: [
+                'Request',
+                'Complaint',
+                'Maintenance',
+                'Food & Beverage',
+                'Housekeeping',
+                'Property care',
+                'Inspections',
+                'Lost & found',
+                'Receptionist',
+                'Cashier',
+                'Gardener',
+                'Spa',
+              ].map((x) => ({ value: x, label: x })),
             },
             {
               name: 'description',
@@ -775,13 +794,19 @@ export function Loyalty() {
 export function Reviews() {
   const { s, actor, act } = useStore();
   const [create, setCreate] = useState(false);
-  const mine = s.reviews.filter((r) => r.guestId === actor!.guestId);
-  const eligible = s.reservations.filter(
-    (r) =>
-      r.guestId === actor!.guestId &&
-      r.status === 'Completed' &&
-      !s.reviews.some((v) => v.reservationId === r.id),
-  );
+  const [editing, setEditing] = useState<Review | null>(null);
+  const isGuest = actor!.module === 'Guest';
+  const reviewsToShow = isGuest
+    ? s.reviews.filter((r) => r.guestId === actor!.guestId)
+    : s.reviews;
+  const eligible = isGuest
+    ? s.reservations.filter(
+        (r) =>
+          r.guestId === actor!.guestId &&
+          ['Completed', 'Checked in'].includes(r.status) &&
+          !s.reviews.some((v) => v.reservationId === r.id),
+      )
+    : [];
   return (
     <PageMotion>
       <PageTitle
@@ -799,38 +824,56 @@ export function Reviews() {
       />
       <Card>
         <CardHead
-          title="Your experiences at the Palm"
-          subtitle="Reviews unlock after your stay is complete"
+          title={isGuest ? 'Your experiences at the Palm' : 'All guest reviews & testimonials'}
+          subtitle={
+            isGuest
+              ? 'Share your thoughts during or after your stay'
+              : 'Direct feedback and ratings from Palm Resort guests'
+          }
         />
-        {mine.length ? (
+        {reviewsToShow.length ? (
           <div className="review-grid">
-            {mine.map((r) => (
-              <article key={r.id}>
-                <div className="stars">
-                  {'★'.repeat(r.rating)}
-                  {'☆'.repeat(5 - r.rating)}
-                </div>
-                <p>“{r.text}”</p>
-                <small>
-                  Resort {r.rating}/5 · Room {r.roomRating}/5 · Service {r.serviceRating}/5
-                </small>
-                <div className="review-meta">
-                  {r.reservationId} · {shortDate(r.date)}
-                </div>
-              </article>
-            ))}
+            {reviewsToShow.map((r) => {
+              const g = s.guests.find((x) => x.id === r.guestId);
+              return (
+                <article key={r.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div className="stars">
+                      {'★'.repeat(r.rating)}
+                      {'☆'.repeat(5 - r.rating)}
+                    </div>
+                    {isGuest && r.guestId === actor!.guestId && (
+                      <Button variant="outline" size="sm" onClick={() => setEditing(r)}>
+                        <Pencil size={14} />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
+                  <p>“{r.text}”</p>
+                  <small>
+                    Resort {r.rating}/5 · Room {r.roomRating}/5 · Service {r.serviceRating}/5
+                  </small>
+                  <div className="review-meta">
+                    {!isGuest && <strong>{g?.name ?? 'Guest'} · </strong>}
+                    {r.reservationId} · {shortDate(r.date)}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         ) : (
           <Empty
-            title="Every stay has a story"
+            title={isGuest ? 'Every stay has a story' : 'No guest reviews yet'}
             description={
-              eligible.length
-                ? 'Your completed stay is ready for a review. Share a little of your experience.'
-                : 'Once you check out, you can rate your room, services and overall stay.'
+              isGuest
+                ? eligible.length
+                  ? 'Your stay is ready for a review. Share a little of your experience.'
+                  : 'You can rate your room, services and overall stay during or after your visit.'
+                : 'Guest reviews will appear here as soon as guests share their experience.'
             }
             action={
               eligible.length ? (
-                <Button onClick={() => setCreate(true)}>Write your first review</Button>
+                <Button onClick={() => setCreate(true)}>Write a review</Button>
               ) : undefined
             }
           />
@@ -856,12 +899,8 @@ export function Reviews() {
             ...['rating', 'roomRating', 'serviceRating'].map((name, i) => ({
               name,
               label: ['Resort experience', 'Room experience', 'Service experience'][i],
-              type: 'select',
+              type: 'rating',
               required: true,
-              options: [5, 4, 3, 2, 1].map((n) => ({
-                value: String(n),
-                label: `${n} ${'★'.repeat(n)}`,
-              })),
             })),
             {
               name: 'text',
@@ -875,6 +914,40 @@ export function Reviews() {
           onClose={() => setCreate(false)}
           onSubmit={(v) =>
             act({ type: 'review.create', payload: v }, 'Thank you for sharing your experience')
+          }
+        />
+      )}
+      {editing && (
+        <FormModal
+          title="Edit your review"
+          description="Update your feedback about your stay."
+          initial={{ ...editing }}
+          fields={[
+            {
+              name: 'reservationId',
+              label: 'Completed stay',
+              type: 'text',
+              wide: true,
+              disabled: true,
+            },
+            ...['rating', 'roomRating', 'serviceRating'].map((name, i) => ({
+              name,
+              label: ['Resort experience', 'Room experience', 'Service experience'][i],
+              type: 'rating',
+              required: true,
+            })),
+            {
+              name: 'text',
+              label: 'Your memories & feedback',
+              type: 'textarea',
+              required: true,
+              wide: true,
+            },
+          ]}
+          submit="Update review"
+          onClose={() => setEditing(null)}
+          onSubmit={(v) =>
+            act({ type: 'review.update', payload: { ...v, id: editing.id } }, 'Your review has been updated')
           }
         />
       )}

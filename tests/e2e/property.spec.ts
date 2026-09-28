@@ -1,0 +1,134 @@
+import { test, expect } from '@playwright/test';
+
+test('Three-field amenity CRUD synchronizes assignments, Owner views, and Guest visibility', async ({ page, context }) => {
+  test.setTimeout(120000);
+  await page.goto('/management/amenities?tab=All+amenities');
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Add amenity', exact: true }).click();
+  await expect(dialog.locator('input, select, textarea')).toHaveCount(3);
+  for (const field of ['Amenity Name', 'Category', 'Amenity Type']) await expect(dialog.getByLabel(field)).toHaveAttribute('required', '');
+  await dialog.getByRole('button', { name: 'Add amenity', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Amenity Name').fill('Private balcony');
+  await dialog.getByLabel('Category').fill('Outdoor comfort');
+  await dialog.getByLabel('Amenity Type').selectOption('Room');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Edit Private balcony', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add amenity', exact: true }).click();
+  await dialog.getByLabel('Amenity Name').fill('Private balcony');
+  await dialog.getByLabel('Category').fill('Outdoor comfort');
+  await dialog.getByLabel('Amenity Type').selectOption('Room');
+  await dialog.getByRole('button', { name: 'Add amenity', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByLabel('Search amenities').fill('balcony');
+  await page.getByLabel('Amenity category filter').selectOption('Outdoor comfort');
+  await page.getByLabel('Amenity type filter').selectOption('Room');
+  await expect(page.getByRole('button', { name: 'View Private balcony', exact: true })).toBeVisible();
+  await page.getByLabel('Amenity type filter').selectOption('Resort');
+  await expect(page.getByRole('button', { name: 'View Private balcony', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Reset filters', exact: true }).click();
+
+  await page.goto('/management/rooms?tab=All+rooms');
+  await page.getByRole('button', { name: 'Edit room 101', exact: true }).click();
+  await dialog.getByRole('checkbox', { name: /Private balcony/ }).check();
+  await dialog.getByRole('button', { name: 'Save room', exact: true }).click();
+
+  const owner = await context.newPage();
+  await owner.goto('/');
+  await owner.getByRole('button', { name: 'Owner', exact: true }).click();
+  await owner.goto('/owner/amenities?tab=All+amenities');
+  await expect(owner.getByRole('button', { name: 'Edit Private balcony', exact: true })).toBeVisible();
+  // Use the navigation link so this tab keeps its own Management session.
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Amenities', exact: true }).click();
+  await page.getByRole('tab', { name: 'All amenities', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit Private balcony', exact: true }).click();
+  await expect(dialog.getByLabel('Amenity Name')).toHaveValue('Private balcony');
+  await expect(dialog.getByLabel('Category')).toHaveValue('Outdoor comfort');
+  await expect(dialog.getByLabel('Amenity Type')).toHaveValue('Room');
+  await dialog.getByLabel('Amenity Name').fill('Garden balcony');
+  await dialog.getByLabel('Category').fill('Garden comforts');
+  await dialog.getByRole('button', { name: 'Save amenity', exact: true }).click();
+  await expect(owner.getByRole('button', { name: 'View Garden balcony', exact: true })).toBeVisible();
+  await expect(owner.getByRole('row').filter({ hasText: 'Garden balcony' })).toContainText('1 rooms');
+
+  await owner.getByRole('button', { name: 'Guest', exact: true }).click();
+  await owner.goto('/guest/amenities');
+  await expect(owner.getByRole('heading', { name: 'Garden balcony', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete Garden balcony', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'Are you sure you want to delete this amenity?', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View Garden balcony', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete Garden balcony', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Amenity deleted', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Garden balcony', exact: true })).toHaveCount(0);
+  await expect(owner.getByRole('heading', { name: 'Garden balcony', exact: true })).toHaveCount(0);
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Rooms & availability', exact: true }).click();
+  await page.getByRole('tab', { name: 'All rooms', exact: true }).click();
+  await page.getByRole('button', { name: 'View room 101', exact: true }).click();
+  await expect(dialog).not.toContainText('Garden balcony');
+});
+
+test('Existing Add Room, Edit, Cancel and confirmed Delete update inventory across tabs', async ({ page, context }) => {
+  test.setTimeout(120000);
+  await page.goto('/management/rooms?tab=All+rooms');
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Add room', exact: true }).click();
+  await dialog.getByLabel('Room number', { exact: false }).fill('401');
+  await dialog.getByLabel('Room name').fill('Coconut Grove Suite');
+  await dialog.getByRole('button', { name: 'Add room', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByLabel('Search rooms').fill('401');
+  await expect(page.getByText('1 matching rooms · 31 in your resort')).toBeVisible();
+  const owner = await context.newPage();
+  await owner.goto('/');
+  await owner.getByRole('button', { name: 'Owner', exact: true }).click();
+  await owner.goto('/owner/rooms?tab=All+rooms');
+  await owner.getByLabel('Search rooms').fill('401');
+  await page.getByRole('button', { name: 'Edit room 401', exact: true }).click();
+  await expect(dialog.getByLabel('Room name')).toHaveValue('Coconut Grove Suite');
+  await dialog.getByLabel('Room name').fill('Coconut Grove Retreat');
+  await dialog.getByLabel('Base price').fill('9200');
+  await dialog.getByRole('button', { name: 'Save room', exact: true }).click();
+  await expect(owner.getByRole('row').filter({ hasText: 'Coconut Grove Retreat' })).toContainText('9,200');
+  await page.getByRole('button', { name: 'View room 401', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'Room 401 · Coconut Grove Retreat', exact: true })).toBeVisible();
+  await expect(dialog).toContainText('9,200');
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Delete room 401', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: 'Are you sure you want to delete this room?', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View room 401', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete room 401', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Delete Room', exact: true }).click();
+  await expect(page.getByText('Room deleted', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View room 401', exact: true })).toHaveCount(0);
+  await expect(owner.getByRole('button', { name: 'View room 401', exact: true })).toHaveCount(0);
+  await expect(owner.getByText('0 matching rooms · 30 in your resort')).toBeVisible();
+  await page.getByRole('tab', { name: 'Availability', exact: true }).click();
+  await page.getByLabel('Search rooms').fill('401');
+  await expect(page.getByRole('cell', { name: /Coconut Grove/ })).toHaveCount(0);
+  await owner.reload();
+  await owner.getByLabel('Search rooms').fill('401');
+  await expect(owner.getByRole('button', { name: 'View room 401', exact: true })).toHaveCount(0);
+});
+
+test('Room and amenity forms and confirmations fit mobile without changing the design', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const kind of ['amenity', 'room']) {
+    await page.goto(`/management/${kind === 'room' ? 'rooms' : 'amenities'}?tab=${kind === 'room' ? 'All+rooms' : 'All+amenities'}`);
+    await page.getByRole('button', { name: `Add ${kind}`, exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const bounds = await page.getByRole('dialog').boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+    await page.screenshot({ path: `test-results/mobile-${kind}-form.png` });
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    const action = kind === 'room' ? 'Delete room 101' : 'Delete Wi-Fi';
+    await page.getByRole('button', { name: action, exact: true }).click();
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  }
+});

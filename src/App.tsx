@@ -15,7 +15,8 @@ const ReservationDetails = lazy(() =>
   import('./pages/Reservations').then((m) => ({ default: m.ReservationDetails })),
 );
 const Billing = lazy(() => import('./pages/Billing'));
-const Rooms = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Rooms })));
+const Rooms = lazy(() => import('./pages/RoomManagement').then((m) => ({ default: m.RoomManagement })));
+const Amenities = lazy(() => import('./pages/Amenities'));
 const Tasks = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Tasks })));
 const Services = lazy(() => import('./pages/Operations').then((m) => ({ default: m.Services })));
 const Guests = lazy(() => import('./pages/People').then((m) => ({ default: m.Guests })));
@@ -42,6 +43,7 @@ const screens: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   reservations: Reservations,
   rooms: Rooms,
+  amenities: Amenities,
   tasks: Tasks,
   services: Services,
   billing: Billing,
@@ -60,6 +62,7 @@ const screens: Record<string, React.ComponentType> = {
 };
 const access: Record<string, string[]> = {
   Guest: [
+    'amenities',
     'dashboard',
     'reservations',
     'services',
@@ -70,6 +73,7 @@ const access: Record<string, string[]> = {
     'reviews',
   ],
   Management: [
+    'amenities',
     'dashboard',
     'reservations',
     'rooms',
@@ -98,6 +102,7 @@ const access: Record<string, string[]> = {
     'promotions',
   ],
   Owner: [
+    'amenities',
     'dashboard',
     'rooms',
     'billing',

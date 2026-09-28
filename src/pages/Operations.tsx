@@ -1,3 +1,4 @@
+import { findRoom } from '../lib/domain';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -305,8 +306,10 @@ export function Rooms() {
 }
 export function Tasks() {
   const { s, actor, act } = useStore();
+  const [taskParams, setTaskParams] = useSearchParams();
+  const statusFilter = taskParams.get('status') ?? 'All';
   const [tab, setTab] = useState('All tasks'),
-    [newTask, setNewTask] = useState(false),
+    [newTask, setNewTask] = useState(taskParams.has('new')),
     [edit, setEdit] = useState<Task | null>(null),
     [found, setFound] = useState(false),
     [damage, setDamage] = useState(false);
@@ -314,26 +317,27 @@ export function Tasks() {
   const staffTasks = s.tasks.filter((t) => !own || t.assignee === actor!.id || t.role === actor!.role);
   const tasks = own
     ? staffTasks.filter((t) => {
-      if (tab === 'All tasks') return true;
-      if (tab === 'Pending') return t.status === 'Pending';
-      if (tab === 'In progress') return t.status === 'In progress';
-      if (tab === 'Inspections') return t.status === 'Inspection';
-      if (tab === 'Completed') return t.status === 'Completed';
-      return true;
-    })
+        if (tab === 'All tasks') return true;
+        if (tab === 'Pending') return t.status === 'Pending';
+        if (tab === 'In progress') return t.status === 'In progress';
+        if (tab === 'Inspections') return t.status === 'Inspection';
+        if (tab === 'Completed') return t.status === 'Completed';
+        return true;
+      })
     : s.tasks.filter(
-      (t) =>
-        tab === 'All tasks' ||
-        (tab === 'Housekeeping' && (t.kind === 'Cleaning' || t.role === 'Housekeeping')) ||
-        (tab === 'Maintenance' && (t.kind === 'Maintenance' || t.role === 'Maintenance')) ||
-        (tab === 'Property care' && (t.kind === 'Property' || t.role === 'Gardener')) ||
-        (tab === 'F&B' && t.role === 'F&B') ||
-        (tab === 'Spa' && t.role === 'Spa') ||
-        (tab === 'Inspections' && t.status === 'Inspection'),
-    );
+        (t) =>
+          tab === 'All tasks' ||
+          (tab === 'Housekeeping' && (t.kind === 'Cleaning' || t.role === 'Housekeeping')) ||
+          (tab === 'Maintenance' && (t.kind === 'Maintenance' || t.role === 'Maintenance')) ||
+          (tab === 'Property care' && (t.kind === 'Property' || t.role === 'Gardener')) ||
+          (tab === 'F&B' && t.role === 'F&B') ||
+          (tab === 'Spa' && t.role === 'Spa') ||
+          (tab === 'Inspections' && t.status === 'Inspection'),
+      );
   const [search, setSearch] = useState('');
   const shown = tasks.filter((t) =>
-    `${t.title} ${s.rooms.find((r) => r.id === t.roomId)?.number}`
+    (statusFilter === 'All' || t.status === statusFilter) &&
+    `${t.title} ${findRoom(s, t.roomId)?.number ?? ''} ${s.accounts.find((a) => a.id === t.assignee)?.name ?? ''}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
@@ -346,23 +350,23 @@ export function Tasks() {
 
   const tabsConfig = own
     ? [
-      { value: 'All tasks', label: 'All My Tasks', count: staffTasks.length },
-      { value: 'Pending', label: 'Pending', count: staffTasks.filter((t) => t.status === 'Pending').length },
-      { value: 'In progress', label: 'In Progress', count: staffTasks.filter((t) => t.status === 'In progress').length },
-      { value: 'Inspections', label: 'Inspections', count: staffTasks.filter((t) => t.status === 'Inspection').length },
-      { value: 'Completed', label: 'Completed', count: staffTasks.filter((t) => t.status === 'Completed').length },
-      { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
-    ]
+        { value: 'All tasks', label: 'All My Tasks', count: staffTasks.length },
+        { value: 'Pending', label: 'Pending', count: staffTasks.filter((t) => t.status === 'Pending').length },
+        { value: 'In progress', label: 'In Progress', count: staffTasks.filter((t) => t.status === 'In progress').length },
+        { value: 'Inspections', label: 'Inspections', count: staffTasks.filter((t) => t.status === 'Inspection').length },
+        { value: 'Completed', label: 'Completed', count: staffTasks.filter((t) => t.status === 'Completed').length },
+        { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
+      ]
     : [
-      { value: 'All tasks', label: 'All Tasks', count: s.tasks.length },
-      { value: 'Housekeeping', label: 'Housekeeping', count: s.tasks.filter((t) => t.kind === 'Cleaning' || t.role === 'Housekeeping').length },
-      { value: 'Maintenance', label: 'Maintenance', count: s.tasks.filter((t) => t.kind === 'Maintenance' || t.role === 'Maintenance').length },
-      { value: 'Property care', label: 'Property Care', count: s.tasks.filter((t) => t.kind === 'Property' || t.role === 'Gardener').length },
-      { value: 'F&B', label: 'F&B', count: s.tasks.filter((t) => t.role === 'F&B').length },
-      { value: 'Spa', label: 'Spa', count: s.tasks.filter((t) => t.role === 'Spa').length },
-      { value: 'Inspections', label: 'Inspections', count: s.tasks.filter((t) => t.status === 'Inspection').length },
-      { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
-    ];
+        { value: 'All tasks', label: 'All Tasks', count: s.tasks.length },
+        { value: 'Housekeeping', label: 'Housekeeping', count: s.tasks.filter((t) => t.kind === 'Cleaning' || t.role === 'Housekeeping').length },
+        { value: 'Maintenance', label: 'Maintenance', count: s.tasks.filter((t) => t.kind === 'Maintenance' || t.role === 'Maintenance').length },
+        { value: 'Property care', label: 'Property Care', count: s.tasks.filter((t) => t.kind === 'Property' || t.role === 'Gardener').length },
+        { value: 'F&B', label: 'F&B', count: s.tasks.filter((t) => t.role === 'F&B').length },
+        { value: 'Spa', label: 'Spa', count: s.tasks.filter((t) => t.role === 'Spa').length },
+        { value: 'Inspections', label: 'Inspections', count: s.tasks.filter((t) => t.status === 'Inspection').length },
+        { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
+      ];
 
   return (
     <PageMotion>
@@ -390,7 +394,7 @@ export function Tasks() {
       <Card>
         <Tabs
           value={tab}
-          onChange={setTab}
+          onChange={(value) => { setTab(value); setSearch(''); setTaskParams({}); }}
           tabs={tabsConfig}
         />
         {tab !== 'Lost & found' && (
@@ -404,6 +408,8 @@ export function Tasks() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </label>
+            <select aria-label="Task status filter" value={statusFilter} onChange={e => setTaskParams(e.target.value === 'All' ? {} : { status: e.target.value })}><option value="All">All statuses</option>{['Pending', 'In progress', 'Inspection', 'Completed'].map(value => <option key={value}>{value}</option>)}</select>
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(''); setTaskParams({}); setTab('All tasks'); }}>Reset filters</Button>
             <span className="muted">
               {tasks.filter((t) => t.status === 'Completed').length} of {tasks.length} completed
             </span>
@@ -430,7 +436,7 @@ export function Tasks() {
               {
                 key: 'room',
                 label: 'Found in',
-                render: (f) => `Room ${s.rooms.find((r) => r.id === f.roomId)?.number}`,
+                render: (f) => `Room ${findRoom(s, f.roomId)?.number}`,
               },
               { key: 'date', label: 'Date', render: (f) => shortDate(f.date) },
               { key: 'status', label: 'Status', render: (f) => <Badge>{f.status}</Badge> },
@@ -471,7 +477,7 @@ export function Tasks() {
                   <Card className="task-card" key={t.id}>
                     <div className="flex-between">
                       <span className="task-room">
-                        Room {s.rooms.find((r) => r.id === t.roomId)?.number}
+                        Room {findRoom(s, t.roomId)?.number}
                       </span>
                       <Badge>{t.priority}</Badge>
                     </div>
@@ -487,10 +493,10 @@ export function Tasks() {
                       {shortDate(t.deadline.slice(0, 10))}, {t.deadline.slice(11, 16)}
                     </div>
                     <div className="task-card-bottom">
-                      <Avatar
+                      <span><Avatar
                         name={s.accounts.find((a) => a.id === t.assignee)?.name ?? 'Unassigned'}
                         size="small"
-                      />
+                      />{s.accounts.find(a => a.id === t.assignee)?.name.split(' ')[0] ?? 'Unassigned'}</span>
                       <button onClick={() => setEdit(t)}>
                         Details
                         <ArrowUpRight size={13} />
@@ -506,7 +512,9 @@ export function Tasks() {
                             { type: 'task.update', payload: { id: t.id, status: next(t) } },
                             t.status === 'Inspection'
                               ? 'Inspection approved. Room readiness updated.'
-                              : 'Task status updated',
+                              : next(t) === 'Inspection'
+                                ? 'Task sent for management inspection'
+                                : 'Task status updated',
                           )
                         }
                       >
@@ -514,9 +522,7 @@ export function Tasks() {
                           ? 'Start work'
                           : t.status === 'Inspection'
                             ? 'Approve inspection'
-                            : next(t) === 'Inspection'
-                              ? 'Request inspection'
-                              : 'Complete task'}
+                            : 'Request inspection'}
                         <ArrowRight size={13} />
                       </Button>
                     )}
@@ -526,13 +532,13 @@ export function Tasks() {
                   </Card>
                 ))}
               {!shown.some((t) => t.status === status) && (
-                <div className="board-empty">Nothing here for now</div>
+                <div className="board-empty">{status === 'Pending' ? 'No pending assignments' : status === 'In progress' ? 'No work in progress' : status === 'Inspection' ? 'No inspections waiting' : 'Completed work will appear here'}</div>
               )}
             </div>
           ))}
         </div>
       )}
-      {newTask && <TaskForm onClose={() => setNewTask(false)} />}
+      {newTask && <TaskForm onClose={() => { setNewTask(false); const next = new URLSearchParams(taskParams); next.delete('new'); setTaskParams(next); }} />}
       {edit && (
         <FormModal
           title="Task details"
@@ -722,7 +728,14 @@ export function Services() {
   const services = s.services.filter(
     (x) =>
       (!guest || myReservations.some((r) => r.id === x.reservationId)) &&
-      (!staff || x.assignee === actor!.id) &&
+      (!staff ||
+        x.assignee === actor!.id ||
+        !x.assignee ||
+        (actor!.role === 'F&B' && x.category === 'Food & Beverage') ||
+        (actor!.role === 'Spa' && x.category === 'Spa') ||
+        (actor!.role === 'Housekeeping' && (x.category === 'Housekeeping' || x.category === 'Laundry')) ||
+        (actor!.role === 'Gardener' && x.category === 'Activities') ||
+        actor!.role === 'Receptionist') &&
       (tab === 'All' || x.status === tab),
   );
   return (
@@ -738,12 +751,10 @@ export function Services() {
             : 'Every request is an opportunity to make someone’s stay.'
         }
         actions={
-          !staff ? (
-            <Button onClick={() => setParams({ new: '1' })}>
-              <Plus size={16} />
-              {guest ? 'Request a service' : 'Add service request'}
-            </Button>
-          ) : undefined
+          <Button onClick={() => setParams({ new: '1' })}>
+            <Plus size={16} />
+            {guest ? 'Request a service' : 'Add service request'}
+          </Button>
         }
       />
       {guest && (
@@ -755,6 +766,8 @@ export function Services() {
               Spa: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80',
               'Food & Beverage': 'https://images.unsplash.com/photo-1414235077428-33898dea23ea?auto=format&fit=crop&w=600&q=80',
               Activities: 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?auto=format&fit=crop&w=600&q=80',
+              Laundry: 'https://images.unsplash.com/photo-1582735689369-4fe89db7114c?auto=format&fit=crop&w=600&q=80',
+              Other: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&w=600&q=80',
             };
             const defaultImage = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80';
 
@@ -846,7 +859,7 @@ export function Services() {
                 return (
                   <>
                     {s.guests.find((g) => g.id === r.guestId)?.name}
-                    <small>Room {s.rooms.find((room) => room.id === r.roomId)?.number}</small>
+                    <small>Room {findRoom(s, r.roomId)?.number}</small>
                   </>
                 );
               },
@@ -882,7 +895,7 @@ export function Services() {
           ]}
         />
       </Card>
-      {params.has('new') && !staff && (
+      {params.has('new') && (
         <ServiceWizard initial={params.get('service') ?? ''} onClose={() => setParams({})} />
       )}
       {selected && (
@@ -1003,9 +1016,34 @@ export function ServiceWizard({
     (r) => live(r) && (actor!.module !== 'Guest' || r.guestId === actor!.guestId),
   );
   const first = stays[0];
+
+  const staffRole = actor?.role;
+  const isSpecializedStaff =
+    actor?.module === 'Staff' &&
+    ['Housekeeping', 'Spa', 'F&B', 'Gardener'].includes(staffRole ?? '');
+
+  // Filter specific services for specific staff departments
+  const availableServices = isSpecializedStaff
+    ? serviceMenu.filter(
+        (m) =>
+          m.role === staffRole ||
+          (staffRole === 'Housekeeping' && (m.category === 'Laundry' || (m.category as string) === 'Housekeeping')) ||
+          (staffRole === 'Spa' && m.category === 'Spa') ||
+          (staffRole === 'F&B' && m.category === 'Food & Beverage') ||
+          (staffRole === 'Gardener' && m.category === 'Activities'),
+      )
+    : serviceMenu;
+
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const filteredServices = isSpecializedStaff
+    ? availableServices
+    : categoryFilter === 'All'
+      ? availableServices
+      : availableServices.filter((m) => m.category === categoryFilter || m.role === categoryFilter);
+
   const [step, setStep] = useState(0),
     [v, setV] = useState<Record<string, any>>({
-      name: initial,
+      name: initial || (availableServices[0]?.name ?? ''),
       reservationId: first?.id ?? '',
       date: first && first.checkIn > today() ? first.checkIn : today(),
       time: '15:00',
@@ -1018,8 +1056,16 @@ export function ServiceWizard({
       open
       wide
       onClose={onClose}
-      title="Make your stay a little more you"
-      description="Choose an experience. We’ll take care of the little details."
+      title={
+        isSpecializedStaff
+          ? `${staffRole} Department — Request Service`
+          : 'Make your stay a little more you'
+      }
+      description={
+        isSpecializedStaff
+          ? `Select and schedule a specialized ${staffRole} service for an active guest stay.`
+          : 'Choose an experience. We’ll take care of the little details.'
+      }
     >
       <div className="wizard-steps">
         {['Select service', 'Options & time', 'Review', 'Submitted'].map((name, i) => (
@@ -1041,26 +1087,55 @@ export function ServiceWizard({
       >
         <div className="dialog-body">
           {step === 0 && (
-            <div className="wizard-services">
-              {serviceMenu.map((m) => {
-                const Icon = icons[m.category];
-                return (
-                  <button
-                    type="button"
-                    key={m.name}
-                    className={v.name === m.name ? 'selected' : ''}
-                    onClick={() => setV({ ...v, name: m.name })}
-                  >
-                    <Icon size={25} />
-                    <span>
-                      <strong>{m.name}</strong>
-                      <small>{m.description}</small>
-                    </span>
-                    <b>{money(m.amount)}</b>
-                    {v.name === m.name && <Check size={17} />}
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              {!isSpecializedStaff && (
+                <div className="flex gap-2 flex-wrap pb-1">
+                  {['All', 'Spa', 'Food & Beverage', 'Laundry', 'Activities', 'Other'].map((cat) => {
+                    const isSelected = categoryFilter === cat;
+                    return (
+                      <button
+                        type="button"
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        style={{
+                          backgroundColor: isSelected ? '#EAF2E8' : '#FAF8F5',
+                          color: isSelected ? '#1F3A2E' : '#6B7160',
+                          borderColor: isSelected ? '#1F3A2E' : '#E5DFD5',
+                          fontWeight: isSelected ? 600 : 500,
+                        }}
+                        className={`px-3 py-1 rounded-full text-xs border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'shadow-xs ring-1 ring-[#1F3A2E]/20'
+                            : 'hover:border-[#1F3A2E] hover:text-[#1F3A2E]'
+                        }`}
+                      >
+                        {cat === 'Other' ? 'Concierge & Transport' : cat === 'Laundry' ? 'Housekeeping & Laundry' : cat}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="wizard-services">
+                {filteredServices.map((m) => {
+                  const Icon = (icons as any)[m.category] || Car;
+                  return (
+                    <button
+                      type="button"
+                      key={m.name}
+                      className={v.name === m.name ? 'selected' : ''}
+                      onClick={() => setV({ ...v, name: m.name })}
+                    >
+                      <Icon size={25} />
+                      <span>
+                        <strong>{m.name}</strong>
+                        <small>{m.description}</small>
+                      </span>
+                      <b>{money(m.amount)}</b>
+                      {v.name === m.name && <Check size={17} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
           {step === 1 && (
@@ -1081,7 +1156,7 @@ export function ServiceWizard({
                       wide: true,
                       options: stays.map((r) => ({
                         value: r.id,
-                        label: `${s.guests.find((g) => g.id === r.guestId)?.name} · ${r.id} · Room ${s.rooms.find((x) => x.id === r.roomId)?.number}`,
+                        label: `${s.guests.find((g) => g.id === r.guestId)?.name} · ${r.id} · Room ${findRoom(s, r.roomId)?.number}`,
                       })),
                     },
                     {
@@ -1181,3 +1256,4 @@ export function ServiceWizard({
     </Modal>
   );
 }
+

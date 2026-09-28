@@ -1,0 +1,36 @@
+import { findRoom } from '../lib/domain';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, CalendarDays, ClipboardCheck, CreditCard, MessageSquare, Plus, Sparkles } from 'lucide-react';
+import { Badge, Button, Card, CardHead, DataTable, Empty, PageMotion, PageTitle } from '../components/ui';
+import { can, folio, money, shortDate, today } from '../lib/domain';
+import type { Task } from '../lib/domain';
+import { useStore } from '../lib/store';
+export default function StaffDashboard() {
+  const { s, actor, act } = useStore();
+  const navigate = useNavigate();
+  const a = actor!;
+  const go = (path: string) => navigate(`/staff/${path}`);
+  const tasks = s.tasks.filter(t => t.assignee === a.id);
+  const services = s.services.filter(x => x.assignee === a.id);
+  const taskAccess = can(s, a, 'tasks'), serviceAccess = can(s, a, 'services');
+  const openTasks = tasks.filter(t => t.status !== 'Completed');
+  const openServices = services.filter(x => !['Completed', 'Cancelled'].includes(x.status));
+  const nextTask = (t: Task) => t.status === 'Pending' ? 'In progress' : t.kind === 'Cleaning' || t.kind === 'Maintenance' ? 'Inspection' : 'Completed';
+  const arrivals = s.reservations.filter(r => r.checkIn === today() && r.status === 'Confirmed');
+  const unpaid = s.reservations.filter(r => ['Checked in', 'Completed'].includes(r.status) && folio(s, r).balance > 0);
+  const metrics = [
+    ...(taskAccess ? [{ label: 'Pending tasks', count: tasks.filter(t => t.status === 'Pending').length, path: 'tasks?status=Pending' }, { label: 'In progress', count: tasks.filter(t => t.status === 'In progress').length, path: 'tasks?status=In+progress' }, { label: 'Completed tasks', count: tasks.filter(t => t.status === 'Completed').length, path: 'tasks?status=Completed' }] : []),
+    ...(serviceAccess ? [{ label: 'Open services', count: openServices.length, path: 'services' }] : []),
+    ...(can(s, a, 'billing') ? [{ label: 'Unsettled folios', count: unpaid.length, path: 'billing' }] : []),
+    ...(can(s, a, 'reservations') ? [{ label: 'Today’s arrivals', count: arrivals.length, path: 'reservations?tab=Arrivals' }] : []),
+  ];
+  return <PageMotion><PageTitle eyebrow={`${a.role.toUpperCase()} WORKSPACE · ${a.shift}`} title={`A great day starts with you, ${a.name.split(' ')[0]}.`} description="Your responsibilities, your assignments, and the next action for every guest." actions={can(s, a, 'reservations') ? <Button onClick={() => go('reservations?new=1')}><Plus size={16} />New reservation</Button> : taskAccess ? <Button variant="outline" onClick={() => go('tasks?new=1')}><Plus size={16} />Report an issue</Button> : undefined} />
+    <div className="property-summary">{metrics.map(m => <button className="property-metric" key={m.label} onClick={() => go(m.path)}><span>{m.label}<ArrowRight size={15} /></span><strong>{m.count}</strong><small>View your work</small></button>)}</div>
+    <div className="dashboard-shortcuts">{taskAccess && <Button variant="outline" onClick={() => go('tasks')}><ClipboardCheck size={16} />My tasks</Button>}{serviceAccess && <Button variant="outline" onClick={() => go('services')}><Sparkles size={16} />My service requests</Button>}{can(s, a, 'billing') && <Button variant="outline" onClick={() => go('billing')}><CreditCard size={16} />Bills & payments</Button>}{can(s, a, 'support') && <Button variant="outline" onClick={() => go('support')}><MessageSquare size={16} />Guest support</Button>}</div>
+    {can(s, a, 'reservations') && <Card><CardHead title="Today’s arrivals" subtitle="Open a reservation to check in, transfer, or manage a guest stay." action={<Button variant="ghost" size="sm" onClick={() => go('reservations')}>All reservations<ArrowRight size={14} /></Button>} /><DataTable rows={arrivals} searchBy={r => `${r.id} ${s.guests.find(g => g.id === r.guestId)?.name}`} columns={[{ key: 'guest', label: 'Guest', render: r => <strong>{s.guests.find(g => g.id === r.guestId)?.name}</strong> }, { key: 'room', label: 'Room', render: r => findRoom(s, r.roomId)?.number }, { key: 'dates', label: 'Stay', render: r => `${shortDate(r.checkIn)} – ${shortDate(r.checkOut)}` }, { key: 'action', label: 'Action', render: r => <Button size="sm" variant="outline" onClick={() => go(`reservations/${r.id}`)}>Manage stay</Button> }]} /></Card>}
+    <div className="staff-work-grid">{taskAccess && <Card><CardHead title="My assigned tasks" subtitle={`${a.role} · only work assigned to you`} action={<Button variant="ghost" size="sm" onClick={() => go('tasks')}>View all<ArrowRight size={14} /></Button>} /><div className="staff-work-list">{openTasks.slice(0, 6).map(t => <div className="staff-work-item" key={t.id}><div><strong>{t.title}</strong><small>Room {findRoom(s, t.roomId)?.number} · {t.priority} priority · {shortDate(t.deadline)}</small><Badge>{t.status}</Badge></div>{t.status === 'Inspection' ? <small>Awaiting management inspection</small> : <Button size="sm" variant="outline" onClick={() => act({ type: 'task.update', payload: { id: t.id, status: nextTask(t) } }, 'Task and room status updated')}>{t.status === 'Pending' ? 'Start work' : nextTask(t) === 'Inspection' ? 'Request inspection' : 'Complete task'}</Button>}</div>)}{!openTasks.length && <Empty title="No open assignments" description="New tasks assigned to you will appear here." />}</div></Card>}
+    {serviceAccess && <Card><CardHead title="My service requests" subtitle="Accept, start, and complete services assigned to you." action={<Button variant="ghost" size="sm" onClick={() => go('services')}>View all<ArrowRight size={14} /></Button>} /><div className="staff-work-list">{openServices.slice(0, 6).map(x => <div className="staff-work-item" key={x.id}><div><strong>{x.name}</strong><small>{shortDate(x.date)} · {x.time} · {x.options || 'No special requests'}</small><Badge>{x.status}</Badge></div><Button size="sm" onClick={() => act({ type: 'service.update', payload: { id: x.id, status: x.status === 'Requested' ? 'Accepted' : x.status === 'Accepted' ? 'In progress' : 'Completed' } }, x.status === 'In progress' ? 'Service completed. Charge added to the folio.' : 'Service updated')}>{x.status === 'Requested' ? 'Accept request' : x.status === 'Accepted' ? 'Start service' : 'Complete & add charge'}</Button></div>)}{!openServices.length && <Empty title="No open service requests" description="Your assigned service requests will appear here." />}</div></Card>}</div>
+    {can(s, a, 'billing') && <Card><CardHead title="Folios awaiting payment" subtitle="Amounts update as services and amenities are used." /><DataTable rows={unpaid} searchBy={r => `${r.id} ${s.guests.find(g => g.id === r.guestId)?.name}`} columns={[{ key: 'guest', label: 'Guest', render: r => <strong>{s.guests.find(g => g.id === r.guestId)?.name}</strong> }, { key: 'stay', label: 'Stay', render: r => r.id }, { key: 'due', label: 'Outstanding', sort: r => folio(s, r).balance, render: r => money(folio(s, r).balance) }, { key: 'action', label: 'Action', render: r => <Button size="sm" onClick={() => go(`billing?reservation=${r.id}`)}>Open folio</Button> }]} /></Card>}
+    {!metrics.length && <Empty title="Your workspace is ready" description="No operational permissions are currently enabled. Contact management for access to your responsibilities." />}
+  </PageMotion>;
+}

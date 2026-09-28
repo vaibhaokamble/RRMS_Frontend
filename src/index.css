@@ -1777,6 +1777,9 @@ td small {
   scrollbar-width: none;
   min-height: 53px;
 }
+.tabs::-webkit-scrollbar {
+  display: none;
+}
 .tab {
   padding: 17px 0 14px;
   display: flex;
@@ -5864,3 +5867,24 @@ td small {
     transition: none !important;
   }
 }
+
+.star-rating-input {
+  display: flex;
+  gap: 4px;
+}
+.star-rating-input button {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #e5e9df;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s, transform 0.2s;
+}
+.star-rating-input button:hover {
+  transform: scale(1.1);
+}
+.star-rating-input button.active {
+  color: #d4b77a;
+}
+

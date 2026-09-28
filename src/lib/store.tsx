@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { applyCommand, seed } from './domain';
+import { normalizeState } from './property';
 import type { State, Account, Command, Module, Role } from './domain';
 const KEY = 'rrms-palm-v1';
 const SESSION = 'rrms-session-v1';
@@ -10,12 +11,12 @@ function readState(): State {
     const stored = localStorage.getItem(KEY);
     if (stored) {
       const s = JSON.parse(stored);
-      if (s.version === 1 && s.accounts && s.rooms) return s;
+      if (s.version === 1 && s.accounts && s.rooms) return normalizeState(s);
     }
   } catch {
     /* recover demo */
   }
-  return seed();
+  return normalizeState(seed());
 }
 type Context = {
   s: State;
@@ -50,7 +51,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const listener = (e: StorageEvent) => {
       if (e.key === KEY && e.newValue) {
         try {
-          const next = JSON.parse(e.newValue);
+          const next = normalizeState(JSON.parse(e.newValue));
           if (next.version === 1) {
             current.current = next;
             setState(next);
@@ -119,7 +120,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ),
     );
   const reset = () => {
-    const fresh = seed();
+    const fresh = normalizeState(seed());
     commit(fresh);
     setActorId('manager');
     toast.success('Demo data reset. Your fresh resort workspace is ready.');

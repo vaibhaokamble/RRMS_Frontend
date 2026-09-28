@@ -49,11 +49,11 @@ export function Badge({ children, className }: { children: React.ReactNode; clas
     <span
       className={cn(
         'badge',
-        text.match(/^(ready|completed|resolved|active|approved|paid|checked in)$/)
+        text.match(/^(ready|available|completed|resolved|active|approved|paid|checked in)$/)
           ? 'badge-green'
-          : text.match(/cancel|high|no-show|maintenance|declined|unpaid/)
+          : text.match(/cancel|high|no-show|maintenance|declined|unpaid|unavailable|out of service/)
             ? 'badge-red'
-            : text.match(/pending|confirm|requested|inspection|progress|medium|dirty/)
+            : text.match(/pending|confirm|requested|inspection|progress|medium|dirty|cleaning|reserved/)
               ? 'badge-amber'
               : 'badge-neutral',
         className,
@@ -322,6 +322,20 @@ export function Fields({
               onChange={(e) => onChange(f.name, e.target.value)}
               rows={3}
             />
+          ) : f.type === 'rating' ? (
+            <div className="star-rating-input">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => onChange(f.name, star)}
+                  className={(values[f.name] || 0) >= star ? 'active' : ''}
+                  aria-label={`Rate ${star} stars`}
+                >
+                  {(values[f.name] || 0) >= star ? '★' : '☆'}
+                </button>
+              ))}
+            </div>
           ) : f.type === 'checkbox' ? (
             <div className="check-field">
               <input
@@ -414,18 +428,20 @@ export function Confirm({
   onClose,
   onConfirm,
   label = 'Confirm',
+  cancelLabel = 'Go back',
 }: {
   title: string;
   description: string;
   onClose: () => void;
   onConfirm: () => boolean;
   label?: string;
+  cancelLabel?: string;
 }) {
   return (
     <Modal open onClose={onClose} title={title} description={description}>
       <div className="dialog-footer">
         <Button variant="outline" onClick={onClose}>
-          Go back
+          {cancelLabel}
         </Button>
         <Button
           variant="destructive"
@@ -453,6 +469,7 @@ export function DataTable<T extends { id: string }>({
   filters,
   pageSize = 7,
   onRowClick,
+  hideToolbar = false,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -461,6 +478,7 @@ export function DataTable<T extends { id: string }>({
   filters?: React.ReactNode;
   pageSize?: number;
   onRowClick?: (r: T) => void;
+  hideToolbar?: boolean;
 }) {
   const [query, setQuery] = React.useState(''),
     [page, setPage] = React.useState(0),
@@ -483,7 +501,7 @@ export function DataTable<T extends { id: string }>({
   const current = Math.min(page, pages - 1);
   return (
     <div>
-      <div className="table-toolbar">
+      {!hideToolbar && <div className="table-toolbar">
         <label className="search-input">
           <Search size={17} />
           <input
@@ -502,7 +520,7 @@ export function DataTable<T extends { id: string }>({
           )}
         </label>
         <div className="table-filters">{filters}</div>
-      </div>
+      </div>}
       <div className="table-scroll">
         <table>
           <thead>
