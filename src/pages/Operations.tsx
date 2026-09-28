@@ -203,8 +203,8 @@ export function Rooms() {
                             onClick={() =>
                               booking && actor!.module !== 'Owner'
                                 ? navigate(
-                                    `/${actor!.module.toLowerCase()}/reservations/${booking.id}`,
-                                  )
+                                  `/${actor!.module.toLowerCase()}/reservations/${booking.id}`,
+                                )
                                 : setSelected(r)
                             }
                           >
@@ -311,15 +311,26 @@ export function Tasks() {
     [found, setFound] = useState(false),
     [damage, setDamage] = useState(false);
   const own = actor!.module === 'Staff';
-  const tasks = s.tasks.filter(
-    (t) =>
-      (!own || t.assignee === actor!.id) &&
-      (tab === 'All tasks' ||
-        (tab === 'Housekeeping' && t.kind === 'Cleaning') ||
-        (tab === 'Maintenance' && t.kind === 'Maintenance') ||
-        (tab === 'Property care' && t.kind === 'Property') ||
-        (tab === 'Inspections' && t.status === 'Inspection')),
-  );
+  const staffTasks = s.tasks.filter((t) => !own || t.assignee === actor!.id || t.role === actor!.role);
+  const tasks = own
+    ? staffTasks.filter((t) => {
+      if (tab === 'All tasks') return true;
+      if (tab === 'Pending') return t.status === 'Pending';
+      if (tab === 'In progress') return t.status === 'In progress';
+      if (tab === 'Inspections') return t.status === 'Inspection';
+      if (tab === 'Completed') return t.status === 'Completed';
+      return true;
+    })
+    : s.tasks.filter(
+      (t) =>
+        tab === 'All tasks' ||
+        (tab === 'Housekeeping' && (t.kind === 'Cleaning' || t.role === 'Housekeeping')) ||
+        (tab === 'Maintenance' && (t.kind === 'Maintenance' || t.role === 'Maintenance')) ||
+        (tab === 'Property care' && (t.kind === 'Property' || t.role === 'Gardener')) ||
+        (tab === 'F&B' && t.role === 'F&B') ||
+        (tab === 'Spa' && t.role === 'Spa') ||
+        (tab === 'Inspections' && t.status === 'Inspection'),
+    );
   const [search, setSearch] = useState('');
   const shown = tasks.filter((t) =>
     `${t.title} ${s.rooms.find((r) => r.id === t.roomId)?.number}`
@@ -330,10 +341,29 @@ export function Tasks() {
     t.status === 'Pending'
       ? 'In progress'
       : t.status === 'In progress'
-        ? t.kind === 'Cleaning' || t.kind === 'Maintenance'
-          ? 'Inspection'
-          : 'Completed'
+        ? 'Inspection'
         : 'Completed';
+
+  const tabsConfig = own
+    ? [
+      { value: 'All tasks', label: 'All My Tasks', count: staffTasks.length },
+      { value: 'Pending', label: 'Pending', count: staffTasks.filter((t) => t.status === 'Pending').length },
+      { value: 'In progress', label: 'In Progress', count: staffTasks.filter((t) => t.status === 'In progress').length },
+      { value: 'Inspections', label: 'Inspections', count: staffTasks.filter((t) => t.status === 'Inspection').length },
+      { value: 'Completed', label: 'Completed', count: staffTasks.filter((t) => t.status === 'Completed').length },
+      { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
+    ]
+    : [
+      { value: 'All tasks', label: 'All Tasks', count: s.tasks.length },
+      { value: 'Housekeeping', label: 'Housekeeping', count: s.tasks.filter((t) => t.kind === 'Cleaning' || t.role === 'Housekeeping').length },
+      { value: 'Maintenance', label: 'Maintenance', count: s.tasks.filter((t) => t.kind === 'Maintenance' || t.role === 'Maintenance').length },
+      { value: 'Property care', label: 'Property Care', count: s.tasks.filter((t) => t.kind === 'Property' || t.role === 'Gardener').length },
+      { value: 'F&B', label: 'F&B', count: s.tasks.filter((t) => t.role === 'F&B').length },
+      { value: 'Spa', label: 'Spa', count: s.tasks.filter((t) => t.role === 'Spa').length },
+      { value: 'Inspections', label: 'Inspections', count: s.tasks.filter((t) => t.status === 'Inspection').length },
+      { value: 'Lost & found', label: 'Lost & Found', count: s.found.filter((f) => f.status !== 'Returned to guest').length },
+    ];
+
   return (
     <PageMotion>
       <PageTitle
@@ -361,14 +391,7 @@ export function Tasks() {
         <Tabs
           value={tab}
           onChange={setTab}
-          tabs={[
-            'All tasks',
-            'Housekeeping',
-            'Maintenance',
-            'Property care',
-            'Inspections',
-            'Lost & found',
-          ].map((x) => ({ value: x, label: x }))}
+          tabs={tabsConfig}
         />
         {tab !== 'Lost & found' && (
           <div className="table-toolbar">
@@ -517,16 +540,16 @@ export function Tasks() {
           fields={[
             ...(!own
               ? [
-                  {
-                    name: 'assignee',
-                    label: 'Assigned team member',
-                    type: 'select',
-                    required: true,
-                    options: s.accounts
-                      .filter((a) => a.role === edit.role && a.active)
-                      .map((a) => ({ value: a.id, label: a.name })),
-                  },
-                ]
+                {
+                  name: 'assignee',
+                  label: 'Assigned team member',
+                  type: 'select',
+                  required: true,
+                  options: s.accounts
+                    .filter((a) => a.role === edit.role && a.active)
+                    .map((a) => ({ value: a.id, label: a.name })),
+                },
+              ]
               : []),
             {
               name: 'priority',
@@ -617,21 +640,26 @@ export function TaskForm({ onClose, roomId }: { onClose: () => void; roomId?: st
       description="Tasks are routed to the matching department. Maintenance takes an unoccupied room out of service."
       initial={{
         roomId: roomId ?? '',
-        kind: 'Maintenance',
+        department: 'Maintenance',
         priority: 'Medium',
         deadline: today() + 'T17:00',
       }}
       fields={[
         { name: 'title', label: 'Task title', required: true, wide: true },
         {
-          name: 'kind',
+          name: 'department',
           label: 'Department / category',
           type: 'select',
           required: true,
-          options: (actor!.module === 'Staff'
-            ? ['Maintenance', 'Property']
-            : ['Cleaning', 'Maintenance', 'Property', 'General']
-          ).map((x) => ({ value: x, label: x })),
+          options: [
+            { value: 'Maintenance', label: 'Maintenance (Repairs & Facilities)' },
+            { value: 'Housekeeping', label: 'Housekeeping (Room Cleaning)' },
+            { value: 'Gardener', label: 'Gardener (Grounds & Landscaping)' },
+            { value: 'F&B', label: 'Food & Beverage (Dining & Kitchen)' },
+            { value: 'Spa', label: 'Spa & Wellness' },
+            { value: 'Receptionist', label: 'Reception (Front Desk)' },
+            { value: 'Cashier', label: 'Cashier (Billing Desk)' },
+          ],
         },
         {
           name: 'roomId',
@@ -654,9 +682,32 @@ export function TaskForm({ onClose, roomId }: { onClose: () => void; roomId?: st
         { name: 'notes', label: 'Instructions', type: 'textarea', wide: true },
       ]}
       onClose={onClose}
-      onSubmit={(v) =>
-        act({ type: 'task.create', payload: v }, 'Task created and routed to the team')
-      }
+      onSubmit={(v) => {
+        const deptMap: Record<string, { role: StaffRole; kind: Task['kind'] }> = {
+          Maintenance: { role: 'Maintenance', kind: 'Maintenance' },
+          Housekeeping: { role: 'Housekeeping', kind: 'Cleaning' },
+          Gardener: { role: 'Gardener', kind: 'Property' },
+          'F&B': { role: 'F&B', kind: 'General' },
+          Spa: { role: 'Spa', kind: 'General' },
+          Receptionist: { role: 'Receptionist', kind: 'General' },
+          Cashier: { role: 'Cashier', kind: 'General' },
+        };
+        const selectedDept = deptMap[v.department] || {
+          role: (v.role || 'Maintenance') as StaffRole,
+          kind: (v.kind || 'Maintenance') as Task['kind'],
+        };
+        return act(
+          {
+            type: 'task.create',
+            payload: {
+              ...v,
+              role: selectedDept.role,
+              kind: selectedDept.kind,
+            },
+          },
+          'Task created and routed to the team',
+        );
+      }}
     />
   );
 }
@@ -706,7 +757,7 @@ export function Services() {
               Activities: 'https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?auto=format&fit=crop&w=600&q=80',
             };
             const defaultImage = 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80';
-            
+
             return (
               <Card key={item.name} className="service-catalog-card overflow-hidden group">
                 <div className="relative h-48 overflow-hidden bg-[#FAF7F2]">

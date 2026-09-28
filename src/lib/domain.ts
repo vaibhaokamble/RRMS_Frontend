@@ -1041,25 +1041,47 @@ export function applyCommand(previous: State, actorId: string, command: Command)
       const r = reservation(p.reservationId);
       assert(live(r), 'Services require a confirmed or active stay.');
       const item = serviceMenu.find((x) => x.name === p.name);
-      assert(item, 'Choose an available service.');
-      assert(
-        p.date >= today() && p.date >= r.checkIn && p.date <= r.checkOut,
-        'Choose a service date within the stay, today or later.',
-      );
-      assert(/^\d{2}:\d{2}$/.test(p.time), 'Choose a service time.');
+      const name = clean(p.name ?? item?.name, 'Service name');
+      const amount = Number(p.amount ?? item?.amount);
+      assert(Number.isFinite(amount) && amount >= 0, 'Enter a valid positive service amount.');
+      const category = p.category ?? item?.category ?? 'Other';
+      const role = p.role ?? item?.role ?? 'Cashier';
+      const date = p.date ?? today();
+      const time = p.time ?? '12:00';
+      const status = p.status ?? (p.completed ? 'Completed' : 'Requested');
       s.services.unshift({
         id: uid('S'),
         reservationId: r.id,
-        name: item.name,
-        category: item.category,
-        amount: item.amount,
-        date: p.date,
-        time: p.time,
+        name,
+        category,
+        amount,
+        date,
+        time,
         options: p.options ?? '',
-        status: 'Requested',
-        assignee: s.accounts.find((x) => x.role === item.role && x.active)?.id ?? '',
+        status,
+        assignee: p.assignee ?? s.accounts.find((x) => x.role === role && x.active)?.id ?? '',
       });
-      notify('New service request', `${item.name} · ${r.id}`, item.role);
+      notify('Service charge posted', `${name} · ${money(amount)}`, role);
+      break;
+    }
+    case 'service.delete': {
+      requirePermission('billing');
+      const idx = s.services.findIndex((x) => x.id === p.id);
+      assert(idx >= 0, 'Service charge not found.');
+      s.services.splice(idx, 1);
+      break;
+    }
+    case 'reservation.discount': {
+      requirePermission('billing');
+      const r = reservation(p.id);
+      assert(live(r), 'Discount requires an active stay.');
+      const discount = Number(p.discount);
+      assert(
+        Number.isFinite(discount) && discount >= 0 && discount <= 100,
+        'Enter a valid discount percentage between 0% and 100%.',
+      );
+      r.discount = discount;
+      history(r, `Folio discount set to ${discount}%`);
       break;
     }
     case 'service.update': {
@@ -1107,27 +1129,30 @@ export function applyCommand(previous: State, actorId: string, command: Command)
     }
     case 'task.create': {
       requirePermission('tasks');
-      if (a.module === 'Staff')
-        assert(
-          ['Maintenance', 'Property'].includes(p.kind) ||
-            (p.kind === 'General' && p.role === 'Maintenance'),
-          'Staff may report property, damage or maintenance issues.',
-        );
       const room = s.rooms.find((x) => x.id === p.roomId);
       assert(room, 'Choose a room or property location.');
-      const kind = p.kind as Task['kind'];
+      const role: StaffRole =
+        p.role ??
+        (p.kind === 'Cleaning'
+          ? 'Housekeeping'
+          : p.kind === 'Maintenance'
+            ? 'Maintenance'
+            : p.kind === 'Property'
+              ? 'Gardener'
+              : 'Receptionist');
+      const kind = (p.kind ??
+        (role === 'Housekeeping'
+          ? 'Cleaning'
+          : role === 'Maintenance'
+            ? 'Maintenance'
+            : role === 'Gardener'
+              ? 'Property'
+              : 'General')) as Task['kind'];
       assert(
         ['Cleaning', 'Maintenance', 'Property', 'General'].includes(kind),
         'Select a valid task category.',
       );
-      const role: StaffRole =
-        kind === 'Cleaning'
-          ? 'Housekeeping'
-          : kind === 'Maintenance'
-            ? 'Maintenance'
-            : kind === 'Property'
-              ? 'Gardener'
-              : (p.role ?? 'Receptionist');
+      assert(roles.includes(role), 'Select a valid department.');
       const assignee = p.assignee || s.accounts.find((x) => x.role === role && x.active)?.id || '';
       assert(
         !assignee || s.accounts.some((x) => x.id === assignee && x.role === role && x.active),
@@ -1191,40 +1216,42 @@ export function applyCommand(previous: State, actorId: string, command: Command)
         if (t.status === 'Inspection') {
           assert(
             a.module === 'Management' || a.module === 'Owner',
-            'Management must approve the room inspection.',
+            'Management must approve the task inspection.',
           );
           assert(p.status === 'Completed', 'Inspection must be approved to finish this task.');
-          const room = s.rooms.find((x) => x.id === t.roomId)!;
-          assert(room.status !== 'Occupied', 'Occupied rooms cannot be approved for turnover.');
-          const remaining = s.tasks.filter(
-            (x) =>
-              x.id !== t.id &&
-              x.roomId === t.roomId &&
-              ['Cleaning', 'Maintenance'].includes(x.kind) &&
-              x.status !== 'Completed',
-          );
-          room.status = remaining.length
-            ? remaining.every((x) => x.status === 'Inspection')
-              ? 'Inspection'
-              : remaining.some((x) => x.kind === 'Maintenance')
-                ? 'Maintenance'
-                : 'Dirty'
-            : 'Ready';
+          const room = s.rooms.find((x) => x.id === t.roomId);
+          if (room && (t.kind === 'Cleaning' || t.kind === 'Maintenance')) {
+            assert(room.status !== 'Occupied', 'Occupied rooms cannot be approved for turnover.');
+            const remaining = s.tasks.filter(
+              (x) =>
+                x.id !== t.id &&
+                x.roomId === t.roomId &&
+                ['Cleaning', 'Maintenance'].includes(x.kind) &&
+                x.status !== 'Completed',
+            );
+            room.status = remaining.length
+              ? remaining.every((x) => x.status === 'Inspection')
+                ? 'Inspection'
+                : remaining.some((x) => x.kind === 'Maintenance')
+                  ? 'Maintenance'
+                  : 'Dirty'
+              : 'Ready';
+          }
         } else {
           assert(
             (t.status === 'Pending' && p.status === 'In progress') ||
-              (t.status === 'In progress' &&
-                p.status ===
-                  (t.kind === 'Cleaning' || t.kind === 'Maintenance' ? 'Inspection' : 'Completed')),
+              (t.status === 'In progress' && (p.status === 'Inspection' || (a.module !== 'Staff' && p.status === 'Completed'))),
             'Invalid task transition.',
           );
           if (p.status === 'Inspection') {
-            const room = s.rooms.find((x) => x.id === t.roomId)!;
-            assert(
-              room.status !== 'Occupied',
-              'Occupied rooms cannot enter a readiness inspection.',
-            );
-            room.status = 'Inspection';
+            const room = s.rooms.find((x) => x.id === t.roomId);
+            if (room && (t.kind === 'Cleaning' || t.kind === 'Maintenance')) {
+              assert(
+                room.status !== 'Occupied',
+                'Occupied rooms cannot enter a readiness inspection.',
+              );
+              room.status = 'Inspection';
+            }
           }
         }
         t.status = p.status;

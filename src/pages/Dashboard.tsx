@@ -1023,6 +1023,10 @@ function StaffRoleDashboard() {
   const role = actor?.role as string;
   const [guestFormOpen, setGuestFormOpen] = useState(false);
   const [damageReportOpen, setDamageReportOpen] = useState(false);
+  const [maintenanceFormOpen, setMaintenanceFormOpen] = useState(false);
+  const [gardenerReportOpen, setGardenerReportOpen] = useState(false);
+  const [fnbOrderOpen, setFnbOrderOpen] = useState(false);
+  const [spaBookingOpen, setSpaBookingOpen] = useState(false);
 
   // Role: Receptionist
   if (role === 'Receptionist') {
@@ -1334,7 +1338,567 @@ function StaffRoleDashboard() {
     );
   }
 
-  // Default fallback for Maintenance, Gardener, F&B, Spa roles
+  // Role: Maintenance
+  if (role === 'Maintenance') {
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="MAINTENANCE WORKSPACE · REPAIRS & PROPERTY CARE"
+          title={`Maintenance Board — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="View assigned repair tasks, update work order statuses, and report room damage or equipment issues."
+          actions={
+            <Button variant="outline" onClick={() => setMaintenanceFormOpen(true)}>
+              <AlertCircle size={16} /> Report Maintenance / Damage
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Assigned Maintenance & Repair Tasks" subtitle="Update status: Pending → In progress → Inspection" />
+            <div className="space-y-3 mt-3">
+              {s.tasks
+                .filter((t) => t.role === 'Maintenance' || t.kind === 'Maintenance')
+                .map((task) => {
+                  const rm = s.rooms.find((r) => r.id === task.roomId);
+                  return (
+                    <div key={task.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                      <div>
+                        <strong className="block text-sm text-[#22261F]">{task.title}</strong>
+                        <span className="text-xs text-[#6B7160]">
+                          Room {rm?.number ?? 'General Property'} ({rm?.type ?? 'Resort Area'}) · Priority: {task.priority}
+                        </span>
+                        <div className="mt-1"><Badge>{task.status}</Badge></div>
+                      </div>
+                      <div className="flex gap-2">
+                        {task.status === 'Pending' && (
+                          <Button
+                            size="sm"
+                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'In progress' } }, 'Maintenance work started')}
+                          >
+                            Start Repair
+                          </Button>
+                        )}
+                        {task.status === 'In progress' && (
+                          <Button
+                            size="sm"
+                            onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'Inspection' } }, 'Task sent for management inspection')}
+                          >
+                            Request Inspection
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              {!s.tasks.some((t) => (t.role === 'Maintenance' || t.kind === 'Maintenance') && t.status !== 'Completed') && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">No open maintenance tasks right now.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Rooms Under Maintenance" subtitle="Rooms taken out of service" />
+            <div className="space-y-2 mt-3">
+              {s.rooms
+                .filter((r) => r.status === 'Maintenance')
+                .map((r) => (
+                  <div key={r.id} className="p-3 border border-[#F0EBE1] rounded-lg flex items-center justify-between text-xs">
+                    <div>
+                      <strong className="block text-[#22261F]">Room {r.number}</strong>
+                      <span className="text-[#6B7160]">{r.type}</span>
+                    </div>
+                    <Badge>Maintenance</Badge>
+                  </div>
+                ))}
+              {!s.rooms.some((r) => r.status === 'Maintenance') && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">All rooms operational!</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {maintenanceFormOpen && (
+          <FormModal
+            title="Report Room Damage or Maintenance Issue"
+            description="Log an issue to schedule repair or take an unoccupied room out of service."
+            fields={[
+              {
+                name: 'roomId',
+                label: 'Room Number',
+                type: 'select',
+                required: true,
+                options: s.rooms.map((r) => ({ value: r.id, label: `Room ${r.number}` })),
+              },
+              { name: 'title', label: 'Item / Damage Description', required: true, placeholder: 'e.g. AC cooling malfunction / bathroom leak' },
+            ]}
+            onClose={() => setMaintenanceFormOpen(false)}
+            onSubmit={(values) => {
+              return act(
+                {
+                  type: 'task.create',
+                  payload: {
+                    title: values.title,
+                    roomId: values.roomId,
+                    priority: 'Medium',
+                    kind: 'Maintenance',
+                    deadline: today() + 'T18:00',
+                    role: 'Maintenance',
+                  },
+                },
+                'Maintenance issue reported and logged!'
+              );
+            }}
+            submit="Submit Report"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Role: Gardener
+  if (role === 'Gardener') {
+    const gardenerTasks = s.tasks.filter((t) => t.role === 'Gardener' || t.kind === 'Property');
+    const activityServices = s.services.filter(
+      (srv) => srv.category === 'Activities' || srv.name.toLowerCase().includes('kayak')
+    );
+
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="GARDENER WORKSPACE · GROUNDS & LANDSCAPE CARE"
+          title={`Gardening Board — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="View assigned landscape tasks, property upkeep, and coordinate outdoor activity requests."
+          actions={
+            <Button variant="outline" onClick={() => setGardenerReportOpen(true)}>
+              <Leaf size={16} /> Report Grounds Issue
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Assigned Landscape & Grounds Tasks" subtitle="Update status: Pending → In progress → Inspection" />
+            <div className="space-y-3 mt-3">
+              {gardenerTasks.map((task) => {
+                const rm = s.rooms.find((r) => r.id === task.roomId);
+                return (
+                  <div key={task.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                    <div>
+                      <strong className="block text-sm text-[#22261F]">{task.title}</strong>
+                      <span className="text-xs text-[#6B7160]">
+                        Location: Room {rm?.number ?? 'Resort Grounds'} ({rm?.type ?? 'Outdoor Area'}) · Priority: {task.priority}
+                      </span>
+                      <div className="mt-1"><Badge>{task.status}</Badge></div>
+                    </div>
+                    <div className="flex gap-2">
+                      {task.status === 'Pending' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'In progress' } }, 'Gardening work started')}
+                        >
+                          Start Work
+                        </Button>
+                      )}
+                      {task.status === 'In progress' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'task.update', payload: { id: task.id, status: 'Inspection' } }, 'Task sent for management inspection')}
+                        >
+                          Request Inspection
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {gardenerTasks.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">No open grounds tasks right now.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Outdoor Activity Requests" subtitle="Guest recreation bookings" />
+            <div className="space-y-3 mt-3">
+              {activityServices.map((srv) => {
+                const r = s.reservations.find((x) => x.id === srv.reservationId);
+                const g = s.guests.find((x) => x.id === r?.guestId);
+                return (
+                  <div key={srv.id} className="p-3 border border-[#F0EBE1] rounded-lg text-xs space-y-2 bg-[#FAF7F2]/30">
+                    <div className="flex items-center justify-between">
+                      <strong className="text-[#22261F]">{srv.name}</strong>
+                      <Badge>{srv.status}</Badge>
+                    </div>
+                    <div className="text-[#6B7160] text-[11px] flex justify-between">
+                      <span>{g?.name ?? 'Guest'} · {srv.time}</span>
+                      <span className="font-semibold text-[#1F3A2E]">{money(srv.amount)}</span>
+                    </div>
+                    {srv.status === 'Requested' && (
+                      <Button
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Activity started')}
+                      >
+                        Start Activity
+                      </Button>
+                    )}
+                    {srv.status === 'In progress' && (
+                      <Button
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Activity completed & charged')}
+                      >
+                        Complete Activity
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+              {activityServices.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">No open activity requests.</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {gardenerReportOpen && (
+          <FormModal
+            title="Report Grounds / Landscape Issue"
+            description="Log grounds maintenance, plant care, or outdoor property task."
+            fields={[
+              {
+                name: 'roomId',
+                label: 'Resort Area / Zone',
+                type: 'select',
+                required: true,
+                options: s.rooms.map((r) => ({ value: r.id, label: `Near Room ${r.number} · ${r.type}` })),
+              },
+              { name: 'title', label: 'Task / Issue Description', required: true, placeholder: 'e.g. Trim palm fronds near pool / fix sprinkler' },
+            ]}
+            onClose={() => setGardenerReportOpen(false)}
+            onSubmit={(values) => {
+              return act(
+                {
+                  type: 'task.create',
+                  payload: {
+                    title: values.title,
+                    roomId: values.roomId,
+                    priority: 'Medium',
+                    kind: 'Property',
+                    deadline: today() + 'T18:00',
+                    role: 'Gardener',
+                  },
+                },
+                'Grounds issue reported and logged!'
+              );
+            }}
+            submit="Submit Report"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Role: F&B
+  if (role === 'F&B') {
+    const diningServices = s.services.filter(
+      (srv) => srv.category === 'Food & Beverage' || srv.name.toLowerCase().includes('dining') || srv.name.toLowerCase().includes('food')
+    );
+    const fnbTasks = s.tasks.filter((t) => t.role === 'F&B');
+
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="F&B WORKSPACE · IN-ROOM DINING & KITCHEN"
+          title={`Food & Beverage Desk — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="Manage guest in-room dining orders, kitchen preparation queue, and deliver culinary requests."
+          actions={
+            <Button variant="outline" onClick={() => setFnbOrderOpen(true)}>
+              <Utensils size={16} /> Log Dining Order
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Active In-Room Dining & Meal Orders" subtitle="Update status: Requested → In progress → Completed" />
+            <div className="space-y-3 mt-3">
+              {diningServices.map((srv) => {
+                const r = s.reservations.find((x) => x.id === srv.reservationId);
+                const g = s.guests.find((x) => x.id === r?.guestId);
+                const rm = s.rooms.find((x) => x.id === r?.roomId);
+                return (
+                  <div key={srv.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                    <div>
+                      <strong className="block text-sm text-[#22261F]">{srv.name}</strong>
+                      <span className="text-xs text-[#6B7160]">
+                        Room {rm?.number ?? 'Direct'} · {g?.name ?? 'Guest'} · {srv.options || 'Standard order'} · {srv.time}
+                      </span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge>{srv.status}</Badge>
+                        <span className="text-xs font-semibold text-[#1F3A2E]">{money(srv.amount)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {srv.status === 'Requested' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Order preparation started')}
+                        >
+                          Start Prep
+                        </Button>
+                      )}
+                      {srv.status === 'In progress' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Order delivered & added to folio')}
+                        >
+                          Deliver & Charge
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {diningServices.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">No active dining orders right now.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Kitchen & Service Tasks" subtitle="Assigned culinary duties" />
+            <div className="space-y-3 mt-3">
+              {fnbTasks.map((t) => (
+                <div key={t.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                  <div>
+                    <strong className="block text-sm text-[#22261F]">{t.title}</strong>
+                    <span className="text-xs text-[#6B7160]">Priority: {t.priority}</span>
+                    <div className="mt-1"><Badge>{t.status}</Badge></div>
+                  </div>
+                  <div className="flex gap-2">
+                    {t.status === 'Pending' && (
+                      <Button
+                        size="sm"
+                        onClick={() => act({ type: 'task.update', payload: { id: t.id, status: 'In progress' } }, 'Task started')}
+                      >
+                        Start Work
+                      </Button>
+                    )}
+                    {t.status === 'In progress' && (
+                      <Button
+                        size="sm"
+                        onClick={() => act({ type: 'task.update', payload: { id: t.id, status: 'Inspection' } }, 'Task sent for management inspection')}
+                      >
+                        Request Inspection
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {fnbTasks.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">All kitchen duties up to date!</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {fnbOrderOpen && (
+          <FormModal
+            title="Log In-Room Dining Order"
+            description="Create an in-room dining request for an active guest stay."
+            initial={{ time: '13:00' }}
+            fields={[
+              {
+                name: 'reservationId',
+                label: 'Active Guest Stay',
+                type: 'select',
+                required: true,
+                options: s.reservations
+                  .filter((r) => r.status === 'Checked in')
+                  .map((r) => {
+                    const g = s.guests.find((x) => x.id === r.guestId);
+                    const rm = s.rooms.find((x) => x.id === r.roomId);
+                    return { value: r.id, label: `Room ${rm?.number} — ${g?.name}` };
+                  }),
+              },
+              { name: 'options', label: 'Dietary / Item Notes', placeholder: 'e.g. 2x Club Sandwich, extra ketchup' },
+              { name: 'time', label: 'Delivery Time', type: 'time', required: true },
+            ]}
+            onClose={() => setFnbOrderOpen(false)}
+            onSubmit={(values) => {
+              return act(
+                {
+                  type: 'service.create',
+                  payload: {
+                    reservationId: values.reservationId,
+                    name: 'In-room dining',
+                    date: today(),
+                    time: values.time || '13:00',
+                    options: values.options || 'In-room dining order',
+                  },
+                },
+                'Dining order created successfully!'
+              );
+            }}
+            submit="Place Order"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Role: Spa
+  if (role === 'Spa') {
+    const spaServices = s.services.filter(
+      (srv) => srv.category === 'Spa' || srv.name.toLowerCase().includes('massage') || srv.name.toLowerCase().includes('spa')
+    );
+    const spaTasks = s.tasks.filter((t) => t.role === 'Spa');
+
+    return (
+      <PageMotion>
+        <PageTitle
+          eyebrow="SPA WORKSPACE · WELLNESS & THERAPIES"
+          title={`Spa & Wellness Board — Welcome, ${actor!.name.split(' ')[0]}`}
+          description="Manage wellness appointments, Balinese therapies, and spa treatment room schedules."
+          actions={
+            <Button variant="outline" onClick={() => setSpaBookingOpen(true)}>
+              <Sparkles size={16} /> Book Spa Session
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
+          <Card className="p-5 md:col-span-2">
+            <CardHead title="Spa Appointments & Treatment Sessions" subtitle="Update status: Requested → In progress → Completed" />
+            <div className="space-y-3 mt-3">
+              {spaServices.map((srv) => {
+                const r = s.reservations.find((x) => x.id === srv.reservationId);
+                const g = s.guests.find((x) => x.id === r?.guestId);
+                const rm = s.rooms.find((x) => x.id === r?.roomId);
+                return (
+                  <div key={srv.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                    <div>
+                      <strong className="block text-sm text-[#22261F]">{srv.name}</strong>
+                      <span className="text-xs text-[#6B7160]">
+                        Guest: {g?.name ?? 'Guest'} (Room {rm?.number ?? 'Villa'}) · {srv.options || '60 min session'} · {srv.time}
+                      </span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge>{srv.status}</Badge>
+                        <span className="text-xs font-semibold text-[#1F3A2E]">{money(srv.amount)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {srv.status === 'Requested' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Spa session started')}
+                        >
+                          Start Session
+                        </Button>
+                      )}
+                      {srv.status === 'In progress' && (
+                        <Button
+                          size="sm"
+                          onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Session completed & billed to folio')}
+                        >
+                          Complete & Charge
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {spaServices.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">No spa appointments scheduled right now.</p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <CardHead title="Spa Suites & Wellness Tasks" subtitle="Treatment room preparation & restocking" />
+            <div className="space-y-3 mt-3">
+              {spaTasks.map((t) => (
+                <div key={t.id} className="p-3.5 border border-[#F0EBE1] rounded-xl flex items-center justify-between bg-[#FAF7F2]/50">
+                  <div>
+                    <strong className="block text-sm text-[#22261F]">{t.title}</strong>
+                    <span className="text-xs text-[#6B7160]">Priority: {t.priority}</span>
+                    <div className="mt-1"><Badge>{t.status}</Badge></div>
+                  </div>
+                  <div className="flex gap-2">
+                    {t.status === 'Pending' && (
+                      <Button
+                        size="sm"
+                        onClick={() => act({ type: 'task.update', payload: { id: t.id, status: 'In progress' } }, 'Task started')}
+                      >
+                        Start Work
+                      </Button>
+                    )}
+                    {t.status === 'In progress' && (
+                      <Button
+                        size="sm"
+                        onClick={() => act({ type: 'task.update', payload: { id: t.id, status: 'Inspection' } }, 'Task sent for management inspection')}
+                      >
+                        Request Inspection
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {spaTasks.length === 0 && (
+                <p className="text-xs text-[#6B7160] py-4 text-center">All spa suites prepared & stocked!</p>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        {spaBookingOpen && (
+          <FormModal
+            title="Book Guest Spa Session"
+            description="Schedule a wellness massage or therapy for an in-house guest."
+            initial={{ time: '15:00' }}
+            fields={[
+              {
+                name: 'reservationId',
+                label: 'Active Guest Stay',
+                type: 'select',
+                required: true,
+                options: s.reservations
+                  .filter((r) => r.status === 'Checked in')
+                  .map((r) => {
+                    const g = s.guests.find((x) => x.id === r.guestId);
+                    const rm = s.rooms.find((x) => x.id === r.roomId);
+                    return { value: r.id, label: `Room ${rm?.number} — ${g?.name}` };
+                  }),
+              },
+              { name: 'options', label: 'Treatment Preference / Notes', placeholder: 'e.g. Aromatherapy oils, deep tissue focus' },
+              { name: 'time', label: 'Appointment Time', type: 'time', required: true },
+            ]}
+            onClose={() => setSpaBookingOpen(false)}
+            onSubmit={(values) => {
+              return act(
+                {
+                  type: 'service.create',
+                  payload: {
+                    reservationId: values.reservationId,
+                    name: 'Balinese massage',
+                    date: today(),
+                    time: values.time || '15:00',
+                    options: values.options || 'Balinese massage session',
+                  },
+                },
+                'Spa appointment booked successfully!'
+              );
+            }}
+            submit="Confirm Booking"
+          />
+        )}
+      </PageMotion>
+    );
+  }
+
+  // Fallback
   return (
     <PageMotion>
       <PageTitle
@@ -1342,61 +1906,6 @@ function StaffRoleDashboard() {
         title={`${role} Portal — Welcome, ${actor!.name.split(' ')[0]}`}
         description={`Manage ${role} work requests, update service status, and complete resort duties.`}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-6">
-        <Card className="p-5">
-          <CardHead title={`Open ${role} Service Requests & Tasks`} subtitle="Manage active work orders" />
-          <div className="space-y-3 mt-3">
-            {s.services
-              .filter((x) => x.status !== 'Completed')
-              .slice(0, 5)
-              .map((srv) => (
-                <div key={srv.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
-                  <div>
-                    <strong className="block text-sm text-[#22261F]">{srv.name}</strong>
-                    <span className="text-xs text-[#6B7160]">{srv.options || 'Standard request'} · {srv.time}</span>
-                    <div className="mt-1"><Badge>{srv.status}</Badge></div>
-                  </div>
-                  {srv.status === 'Requested' && (
-                    <Button
-                      size="sm"
-                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'In progress' } }, 'Service started')}
-                    >
-                      Start Service
-                    </Button>
-                  )}
-                  {srv.status === 'In progress' && (
-                    <Button
-                      size="sm"
-                      onClick={() => act({ type: 'service.update', payload: { id: srv.id, status: 'Completed' } }, 'Service completed & charged to folio')}
-                    >
-                      Complete & Charge
-                    </Button>
-                  )}
-                </div>
-              ))}
-            {!s.services.some((x) => x.status !== 'Completed') && (
-              <p className="text-xs text-[#6B7160] py-6 text-center">No open service requests right now.</p>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <CardHead title="Department Tasks" subtitle="Assigned work orders" />
-          <div className="space-y-3 mt-3">
-            {s.tasks
-              .filter((t) => t.role === (role as any))
-              .map((task) => (
-                <div key={task.id} className="p-3 border border-[#F0EBE1] rounded-xl flex items-center justify-between">
-                  <div>
-                    <strong className="block text-xs text-[#22261F]">{task.title}</strong>
-                    <span className="text-[11px] text-[#6B7160]">Priority: {task.priority}</span>
-                  </div>
-                  <Badge>{task.status}</Badge>
-                </div>
-              ))}
-          </div>
-        </Card>
-      </div>
     </PageMotion>
   );
 }
